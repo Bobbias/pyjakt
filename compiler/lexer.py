@@ -20,18 +20,93 @@ def verify_type(value: int | float, val_type: Type[int | float]):
     return True if type(value) is val_type else False
 
 
-# todo: Expand this to handle all the keywords
 def token_from_keyword_or_identifier(string: str, span: TextSpan):
-    if string == 'if':
-        return Token.IF(span=span)
+    if string == 'and':
+        return Token.AND(span=span)
+    elif string == 'anon':
+        return Token.ANON(span=span)
+    elif string == 'as':
+        return Token.AS(span=span)
+    elif string == 'boxed':
+        return Token.BOXED(span=span)
+    elif string == 'break':
+        return Token.BREAK(span=span)
+    elif string == 'catch':
+        return Token.CATCH(span=span)
+    elif string == 'class':
+        return Token.CLASS(span=span)
+    elif string == 'continue':
+        return Token.CONTINUE(span=span)
+    elif string == 'comptime':
+        return Token.COMPTIME(span=span)
+    elif string == 'cpp':
+        return Token.CPP(span=span)
+    elif string == 'defer':
+        return Token.DEFER(span=span)
     elif string == 'else':
         return Token.ELSE(span=span)
-    elif string == 'true':
-        return Token.TRUE(span=span)
+    elif string == 'enum':
+        return Token.ENUM(span=span)
+    elif string == 'extern':
+        return Token.EXTERN(span=span)
     elif string == 'false':
         return Token.FALSE(span=span)
-    elif string == 'return':
-        return Token.RETURN(span=span)
+    elif string == 'for':
+        return Token.FOR(span=span)
+    elif string == 'function':
+        return Token.FUNCTION(span=span)
+    elif string == 'guard':
+        return Token.GUARD(span=span)
+    elif string == 'if':
+        return Token.IF(span=span)
+    elif string == 'import':
+        return Token.IMPORT(span=span)
+    elif string == 'in':
+        return Token.IN(span=span)
+    elif string == 'is':
+        return Token.IS(span=span)
+    elif string == 'let':
+        return Token.LET(span=span)
+    elif string == 'loop':
+        return Token.LOOP(span=span)
+    elif string == 'match':
+        return Token.MATCH(span=span)
+    elif string == 'mut':
+        return Token.MUT(span=span)
+    elif string == 'namespace':
+        return Token.NAMESPACE(span=span)
+    elif string == 'not':
+        return Token.NOT(span=span)
+    elif string == 'or':
+        return Token.OR(span=span)
+    elif string == 'private':
+        return Token.PRIVATE(span=span)
+    elif string == 'public':
+        return Token.PUBLIC(span=span)
+    elif string == 'raw':
+        return Token.RAW(span=span)
+    elif string == 'restricted':
+        return Token.RESTRICTED(span=span)
+    elif string == 'struct':
+        return Token.STRUCT(span=span)
+    elif string == 'this':
+        return Token.THIS(span=span)
+    elif string == 'throw':
+        return Token.THROW(span=span)
+    elif string == 'throws':
+        return Token.THROWS(span=span)
+    elif string == 'true':
+        return Token.TRUE(span=span)
+    elif string == 'try':
+        return Token.TRY(span=span)
+    elif string == 'unsafe':
+        return Token.UNSAFE(span=span)
+    elif string == 'weak':
+        return Token.WEAK(span=span)
+    elif string == 'while':
+        return Token.WHILE(span=span)
+    elif string == 'yield':
+        return Token.YIELD(span=span)
     else:
         return Token.IDENTIFIER(name=string, span=span)
 
