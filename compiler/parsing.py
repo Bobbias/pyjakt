@@ -564,10 +564,6 @@ class Parser:
         self.compiler = compiler
         self.tokens = tokens
 
-    def parse(self, compiler: Compiler, tokens: List[Token]):
-        parser = Parser(0, compiler, tokens)
-        return parser.parse_namespace()
-
     def span(self, start, end):
         return TextSpan(self.compiler.current_file, start, end)
 
@@ -2643,3 +2639,8 @@ class Parser:
         if one.file_id != two.file_id:
             self.error('Cannot merge spans between different files', one)
         return TextSpan(one.file_id, one.start, two.end)
+
+    @classmethod
+    def parse(cls, compiler: Compiler, tokens: List[Token]):
+        parser = Parser(0, compiler, tokens)
+        return parser.parse_namespace()
