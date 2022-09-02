@@ -6,10 +6,10 @@ Much of the current code is based off of translating the Jakt self-hosting sourc
 
 ## Project Status
 
-[x] Lexing
-[x] Parsing
-[ ] Typechecking
-[ ] Codegen
+- [x] Lexing
+- [x] Parsing
+- [ ] Typechecking
+- [ ] Codegen
 
 Parsing is mostly complete, however the sumtype dependency is causing some issues which must be fixed before continuing to typechecking.
 
