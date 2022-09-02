@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 # Third party imports
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Any
 
 from sumtype import sumtype
 
@@ -24,40 +24,40 @@ class ParsedType(sumtype):
     def Name(name: str, span: TextSpan):
         ...  # -> ParsedType
 
-    def NamespacedName(name: str, namespaces: List[str], params: List[ParsedType], span: TextSpan):
+    def NamespacedName(name: str, namespaces: List[str], params: List[Any], span: TextSpan):
         ...  # -> ParsedType
 
-    def GenericType(name: str, generic_parameters: List[ParsedType], span: TextSpan):
+    def GenericType(name: str, generic_parameters: List[Any], span: TextSpan):
         ...  # -> ParsedType
 
-    def Array(inner: ParsedType, span: TextSpan):
+    def Array(inner: Any, span: TextSpan):
         ...  # -> ParsedType
 
-    def Dictionary(key: ParsedType, value: ParsedType, span: TextSpan):
+    def Dictionary(key: Any, value: Any, span: TextSpan):
         ...  # -> ParsedType
 
-    def Tuple(types: List[ParsedType], span: TextSpan):
+    def Tuple(types: List[Any], span: TextSpan):
         ...  # -> ParsedType
 
-    def Set(inner: ParsedType, span: TextSpan):
+    def Set(inner: Any, span: TextSpan):
         ...  # -> ParsedType
 
-    def Optional(inner: ParsedType, span: TextSpan):
+    def Optional(inner: Any, span: TextSpan):
         ...  # -> ParsedType
 
-    def Reference(inner: ParsedType, span: TextSpan):
+    def Reference(inner: Any, span: TextSpan):
         ...  # -> ParsedType
 
-    def MutableReference(inner: ParsedType, span: TextSpan):
+    def MutableReference(inner: Any, span: TextSpan):
         ...  # -> ParsedType
 
-    def RawPointer(inner: ParsedType, span: TextSpan):
+    def RawPointer(inner: Any, span: TextSpan):
         ...  # -> ParsedType
 
-    def WeakPointer(inner: ParsedType, span: TextSpan):
+    def WeakPointer(inner: Any, span: TextSpan):
         ...  # -> ParsedType
 
-    def Function(params: List[ParsedParameter], can_throw: bool, return_type: ParsedType, span: TextSpan):
+    def Function(params: List[ParsedParameter], can_throw: bool, return_type: Any, span: TextSpan):
         ...  # -> ParsedType
 
     def Empty(span: TextSpan):
@@ -204,9 +204,9 @@ class BinaryOperator(sumtype):
 
 
 class TypeCast(sumtype):
-    def Fallible(cast: ParsedType) -> TypeCast: ...
+    def Fallible(cast: ParsedType): ...  # -> TypeCast
 
-    def Infallible(cast: ParsedType) -> TypeCast: ...
+    def Infallible(cast: ParsedType): ...  # -> TypeCast
 
     def __eq__(self, other: TypeCast):
         if self.variant != other.variant:
@@ -257,7 +257,7 @@ class UnaryOperator(sumtype):
     def IsEnumVariant(inner: ParsedType, bindings: List[EnumVariantPatternArgument]):
         ...  # -> UnaryOperator
 
-    def __eq__(self, other: 'UnaryOperator'):
+    def __eq__(self, other: UnaryOperator):
         if self.variant != other.variant:
             return False
         if self.variant == 'TypeCast':
@@ -294,19 +294,19 @@ class ParsedMatchPattern(sumtype):
                     variant_arguments: List[EnumVariantPatternArgument],
                     arguments_span: TextSpan): ...  # -> ParsedMatchPattern
 
-    def Expression(expr: 'ParsedExpression'): ...  # -> ParsedMatchPattern
+    def Expression(expr: Any): ...  # -> ParsedMatchPattern
 
     def CatchAll(): ...  # -> ParsedMatchPattern
 
 
 class ParsedMatchBody(sumtype):
-    def Expression(expr: 'ParsedExpression'):
+    def Expression(expr: Any):
         ...  # -> ParsedMatchBody
 
     def Block(block: ParsedBlock):
         ...  # -> ParsedMatchBody
 
-    def __eq__(self, other: 'ParsedMatchBody'):
+    def __eq__(self, other: ParsedMatchBody):
         if self.variant != other.variant:
             return False
         if self.variant == 'Expression':
@@ -324,22 +324,22 @@ class ParsedCapture(sumtype):
 
 
 class ParsedStatement(sumtype):
-    def Expression(expr: 'ParsedExpression', span: TextSpan):
+    def Expression(expr: Any, span: TextSpan):
         ...  # -> ParsedStatement
 
-    def Defer(statement: 'ParsedStatement', span: TextSpan):
+    def Defer(statement: Any, span: TextSpan):
         ...  # -> ParsedStatement
 
     def UnsafeBlock(block: ParsedBlock, span: TextSpan):
         ...  # -> ParsedStatement
 
-    def DestructuringAssignment(variables: List[ParsedVarDecl], var_decl: 'ParsedStatement', span: TextSpan):
+    def DestructuringAssignment(variables: List[ParsedVarDecl], var_decl: Any, span: TextSpan):
         ...  # -> ParsedStatement
 
-    def VarDecl(var: ParsedVarDecl, init: 'ParsedExpression', span: TextSpan):
+    def VarDecl(var: ParsedVarDecl, init: Any, span: TextSpan):
         ...  # -> ParsedStatement
 
-    def If(condition: 'ParsedExpression', then_block: ParsedBlock, else_statement: 'ParsedStatement', span: TextSpan):
+    def If(condition: Any, then_block: ParsedBlock, else_statement: Any, span: TextSpan):
         ...  # -> ParsedStatement
 
     def Block(block: ParsedBlock, span: TextSpan):
@@ -348,10 +348,10 @@ class ParsedStatement(sumtype):
     def Loop(block: ParsedBlock, span: TextSpan):
         ...  # -> ParsedStatement
 
-    def While(condition: 'ParsedExpression', block: ParsedBlock, span: TextSpan):
+    def While(condition: Any, block: ParsedBlock, span: TextSpan):
         ...  # -> ParsedStatement
 
-    def For(iterator_name: str, name_span: TextSpan, range: 'ParsedExpression', block: ParsedBlock, span: TextSpan):
+    def For(iterator_name: str, name_span: TextSpan, range: Any, block: ParsedBlock, span: TextSpan):
         ...  # -> ParsedStatement
 
     def Break(span: TextSpan):
@@ -360,25 +360,25 @@ class ParsedStatement(sumtype):
     def Continue(span: TextSpan):
         ...  # -> ParsedStatement
 
-    def Return(expr: Union['ParsedExpression', None], span: TextSpan):
+    def Return(expr: Any, span: TextSpan):
         ...  # -> ParsedStatement
 
-    def Throw(expr: 'ParsedExpression', span: TextSpan):
+    def Throw(expr: Any, span: TextSpan):
         ...  # -> ParsedStatement
 
-    def Yield(expr: 'ParsedExpression', span: TextSpan):
+    def Yield(expr: Any, span: TextSpan):
         ...  # -> ParsedStatement
 
     def InlineCpp(block: ParsedBlock, span: TextSpan):
         ...  # -> ParsedStatement
 
-    def Guard(expr: 'ParsedExpression', else_block: ParsedBlock, remaining_code: ParsedBlock, span: TextSpan):
+    def Guard(expr: Any, else_block: ParsedBlock, remaining_code: ParsedBlock, span: TextSpan):
         ...  # -> ParsedStatement
 
     def Invalid(span: TextSpan):
         ...  # -> ParsedStatement
 
-    def __eq__(self, other: 'ParsedStatement'):
+    def __eq__(self, other: ParsedStatement):
         if self.variant != other.variant:
             return False
         if self.variant in ['Expression', 'Throw', 'Yield']:
@@ -423,7 +423,7 @@ class Visibility(sumtype):
 
 
 class ParsedExpression(sumtype):
-    def Boolean(val: bool, span: TextSpan):
+    def Boolean(val: Any, span: TextSpan):
         ...  # -> ParsedExpression
 
     def NumericConstant(val: NumericConstant, span: TextSpan):
@@ -441,62 +441,62 @@ class ParsedExpression(sumtype):
     def Call(call: ParsedCall, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def MethodCall(expr: 'ParsedExpression', call: ParsedCall, is_optional: bool, span: TextSpan):
+    def MethodCall(expr: Any, call: ParsedCall, is_optional: bool, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def IndexedTuple(expr: 'ParsedExpression', index: int, is_optional: bool, span: TextSpan):
+    def IndexedTuple(expr: Any, index: int, is_optional: bool, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def IndexedStruct(expr: 'ParsedExpression', field: str, is_optional: bool, span: TextSpan):
+    def IndexedStruct(expr: Any, field: str, is_optional: bool, span: TextSpan):
         ...  # -> ParsedExpression
 
     def Var(name: str, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def IndexedExpression(expr: 'ParsedExpression', index: 'ParsedExpression', span: TextSpan):
+    def IndexedExpression(expr: Any, index: Any, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def IndexedRangeExpression(expr: 'ParsedExpression', from_: 'ParsedExpression',
-                               to: 'ParsedExpression', span: TextSpan):
+    def IndexedRangeExpression(expr: Any, from_: Any,
+                               to: Any, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def UnaryOp(expr: 'ParsedExpression', op: UnaryOperator, span: TextSpan):
+    def UnaryOp(expr: Any, op: UnaryOperator, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def BinaryOp(lhs: 'ParsedExpression', op: BinaryOperator, rhs: 'ParsedExpression', span: TextSpan):
+    def BinaryOp(lhs: Any, op: BinaryOperator, rhs: Any, span: TextSpan):
         ...  # -> ParsedExpression
 
     def Operator(op: BinaryOperator, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def OptionalSome(expr: 'ParsedExpression', span: TextSpan):
+    def OptionalSome(expr: Any, span: TextSpan):
         ...  # -> ParsedExpression
 
     def OptionalNone(span: TextSpan):
         ...  # -> ParsedExpression
 
-    def Array(values: 'List[ParsedExpression]', fill_size: 'ParsedExpression', span: TextSpan):
+    def Array(values_: List[Any], fill_size: Any, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def Dictionary(values: 'List[Tuple[ParsedExpression, ParsedExpression]]', span: TextSpan):
+    def Dictionary(values_: List[Any], span: TextSpan):
         ...  # -> ParsedExpression
 
-    def Set(values: 'List[ParsedExpression]', span: TextSpan):
+    def Set(values_: List[Any], span: TextSpan):
         ...  # -> ParsedExpression
 
-    def Tuple(values: 'List[ParsedExpression]', span: TextSpan):
+    def Tuple(values_: List[Any], span: TextSpan):
         ...  # -> ParsedExpression
 
-    def Range(from_: 'ParsedExpression', to: 'ParsedExpression', span: TextSpan):
+    def Range(from_: Any, to: Any, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def ForcedUnwrap(expr: 'ParsedExpression', span: TextSpan):
+    def ForcedUnwrap(expr: Any, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def Match(expr: 'ParsedExpression', cases: List[ParsedMatchCase], span: TextSpan):
+    def Match(expr: Any, cases: List[ParsedMatchCase], span: TextSpan):
         ...  # -> ParsedExpression
 
-    def EnumVariantArg(expr: 'ParsedExpression', arg: EnumVariantPatternArgument,
+    def EnumVariantArg(expr: Any, arg: EnumVariantPatternArgument,
                        enum_variant: ParsedType, span: TextSpan):
         ...  # -> ParsedExpression
 
@@ -507,10 +507,10 @@ class ParsedExpression(sumtype):
                  return_type: ParsedType, block: ParsedBlock, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def Try(expr: 'ParsedExpression', catch_block: ParsedBlock, catch_name: str, span: TextSpan):
+    def Try(expr: Any, catch_block: ParsedBlock, catch_name: str, span: TextSpan):
         ...  # -> ParsedExpression
 
-    def TryBlock(stmt: ParsedStatement, error_name: str,
+    def TryBlock(stmt: Any, error_name: str,
                  error_span: TextSpan, catch_block: ParsedBlock, span: TextSpan):
         ...  # -> ParsedExpression
 
@@ -1074,10 +1074,10 @@ class Parser:
             self.error('Expected `]` to close the array', self.tokens[end].span)
         if is_dictionary:
             return ParsedExpression.Dictionary(
-                    values=dict_output,
+                    values_=dict_output,
                     span=self.merge_spans(start, self.tokens[end].span))
         else:
-            return ParsedExpression.Array(values=output, fill_size=fill_size_expr,
+            return ParsedExpression.Array(values_=output, fill_size=fill_size_expr,
                                           span=self.merge_spans(start, self.tokens[end].span))
 
     def parse_captures(self):
