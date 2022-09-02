@@ -1,0 +1,20 @@
+/// Expect:
+/// - stderr: "usage: cat <path>\n"
+
+function main(args: [String]) {
+    if args.size() <= 1 {
+        eprintln("usage: cat <path>")
+        return 1
+    }
+
+    let filename = args[1]
+
+    mut file = fopen(filename.c_string(), "r".c_string())
+    defer fclose(file)
+
+    mut c = fgetc(file)
+    while feof(file) == 0 {
+        putchar(c)
+        c = fgetc(file)
+    }
+}

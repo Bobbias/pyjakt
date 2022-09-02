@@ -1,0 +1,79 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="CompilerSettings" />
+    <inspection_tool class="InconsistentLineSeparators" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyCompatibilityInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ourVersions">
+        <value>
+          <list size="2">
+            <item index="0" class="java.lang.String" itemvalue="3.10" />
+            <item index="1" class="java.lang.String" itemvalue="3.11" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyMethodParametersInspection" enabled="false" level="Ignored" enabled_by_default="false" />
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N802" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="parsing.NumericConstantType.*" />
+          <option value="parsing.lexing.token.LiteralSuffix.*" />
+          <option value="compiler.lexing.token.Token.*" />
+          <option value="compiler.parsing.ParsedType.variant" />
+          <option value="compiler.parsing.ParsedExpression.variant" />
+          <option value="compiler.parsing.ParsedType.span" />
+          <option value="compiler.parsing.ParsedStatement.variant" />
+          <option value="compiler.parsing.ParsedStatement.span" />
+          <option value="compiler.parsing.BinaryOperator.variant" />
+          <option value="compiler.parsing.ParsedExpression.span" />
+          <option value="compiler.parsing.ParsedType.inner" />
+          <option value="compiler.parsing.ParsedExpression.name" />
+          <option value="compiler.parsing.DefinitionLinkage.variant" />
+          <option value="compiler.parsing.FunctionLinkage.variant" />
+          <option value="compiler.parsing.BinaryOperator.span" />
+          <option value="compiler.parsing.ParsedStatement.expr" />
+          <option value="compiler.parsing.ParsedStatement.block" />
+          <option value="compiler.parsing.ParsedStatement.else_block" />
+          <option value="compiler.parsing.ParsedStatement.stmt" />
+          <option value="compiler.parsing.ParsedStatement.var_decl" />
+          <option value="compiler.parsing.ParsedStatement.condition" />
+          <option value="compiler.parsing.ParsedStatement.then_block" />
+          <option value="compiler.parsing.ParsedStatement.else_statement" />
+          <option value="compiler.parsing.ParsedStatement.variables" />
+          <option value="compiler.parsing.ParsedStatement.var" />
+          <option value="compiler.parsing.ParsedStatement.init" />
+          <option value="compiler.parsing.ParsedStatement.iterator_name" />
+          <option value="compiler.parsing.ParsedStatement.range" />
+          <option value="compiler.parsing.UnaryOperator.variant" />
+          <option value="compiler.parsing.TypeCast.cast" />
+          <option value="compiler.parsing.TypeCast.variant" />
+          <option value="compiler.parsing.ParsedType.namespaces" />
+          <option value="compiler.parsing.ParsedType.params" />
+          <option value="compiler.parsing.ParsedType.name" />
+          <option value="compiler.parsing.ParsedType.generic_parameters" />
+          <option value="compiler.parsing.ParsedType.can_throw" />
+          <option value="compiler.parsing.ParsedType.return_type" />
+          <option value="compiler.parsing.ParsedType.key" />
+          <option value="compiler.parsing.ParsedType.value" />
+          <option value="compiler.parsing.ParsedType.types" />
+          <option value="compiler.parsing.ParsedMatchBody.block" />
+          <option value="compiler.parsing.ParsedMatchBody.expr" />
+          <option value="compiler.parsing.ParsedMatchBody.variant" />
+          <option value="compiler.error.MessageSeverity.variant" />
+          <option value="compiler.error.CompilerError.message" />
+          <option value="compiler.error.CompilerError.span" />
+          <option value="compiler.error.CompilerError.variant" />
+          <option value="compiler.error.CompilerError.hint" />
+          <option value="compiler.error.CompilerError.hint_span" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
