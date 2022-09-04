@@ -87,6 +87,8 @@ def token_from_keyword_or_identifier(string: str, span: TextSpan):
         return Token.RAW(span=span)
     elif string == 'restricted':
         return Token.RESTRICTED(span=span)
+    elif string == 'return':
+        return Token.RETURN(span=span)
     elif string == 'struct':
         return Token.STRUCT(span=span)
     elif string == 'this':
