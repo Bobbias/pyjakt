@@ -617,13 +617,13 @@ class Parser:
                 if self.eol():
                     break
             parsed_operator = self.parse_operator(allow_assignments)
-            if parsed_operator.variant == 'INVALID':
+            if parsed_operator.variant == 'Invalid':
                 break
             precedence = parsed_operator.precedence()
             self.skip_newlines()
             rhs = self.parse_operand()
 
-            while precedence <= last_precedence and len(expr_stack) > 1:
+            while precedence <= last_precedence and len(expr_stack) > 1:  # was 1
                 rhs = expr_stack.pop()
                 op = expr_stack.pop()
 
@@ -631,6 +631,7 @@ class Parser:
                     expr_stack.append(op)
                     expr_stack.append(rhs)
                     break
+
                 lhs = expr_stack.pop()
 
                 match op.variant:
@@ -659,7 +660,7 @@ class Parser:
 
     def parse_operator(self, allow_assignments: bool):
         span = self.current().span
-        op: BinaryOperator
+        op: BinaryOperator | None = None
         token_type = self.current().variant
         if token_type == 'QUESTION_MARK_QUESTION_MARK':
             op = BinaryOperator.NoneCoalescing()
@@ -727,10 +728,12 @@ class Parser:
             op = BinaryOperator.ModuloAssign()
         elif token_type == 'QUESTION_MARK_QUESTION_MARK_EQUAL':
             op = BinaryOperator.NoneCoalescingAssign()
-        else:
+
+        if not op:
             return ParsedExpression.Invalid(span)
 
         self.index_inc()
+
         if allow_assignments and op.is_assignment():
             self.error('Assignment is not allowed in this position', span)
             return ParsedExpression.Operator(op, span)
@@ -763,12 +766,12 @@ class Parser:
                     catch_block = self.parse_block()
                 return ParsedExpression.Try(expression, catch_block, catch_name, span)
         elif self.current().variant == 'QUOTED_STRING':
-            quote = self.current().quote
+            quote = self.current().string
             span = self.current().span
             self.index_inc()
             return ParsedExpression.QuotedString(quote, span)
         elif self.current().variant == 'SINGLE_QUOTED_STRING':
-            quote = self.current().quote
+            quote = self.current().string
             span = self.current().span
             self.index_inc()
             return ParsedExpression.SingleQuotedString(quote, span)
@@ -785,15 +788,15 @@ class Parser:
         elif self.current().variant == 'TRUE':
             span = self.current().span
             self.index_inc()
-            yield ParsedExpression.Boolean(True, span)
+            return ParsedExpression.Boolean(True, span)
         elif self.current().variant == 'FALSE':
             span = self.current().span
             self.index_inc()
-            yield ParsedExpression.Boolean(False, span)
+            return ParsedExpression.Boolean(False, span)
         elif self.current().variant == 'THIS':
             span = self.current().span
             self.index_inc()
-            yield ParsedExpression.Var('this', span)
+            return ParsedExpression.Var('this', span)
         elif self.current().variant == 'NOT':
             start = self.current().span
             self.index_inc()
@@ -1202,6 +1205,7 @@ class Parser:
                 result = self.parse_postfix_colon_colon(start, result)
             elif self.current().variant in ['QUESTION_MARK', 'DOT']:
                 is_optional = self.current().variant == 'QUESTION_MARK'
+                self.index_inc()
                 if is_optional:
                     self.index_inc()
                     if self.current().variant != 'DOT':
@@ -1356,7 +1360,7 @@ class Parser:
 
         parsed_function.params = self.parse_function_parameters()
 
-        can_throw = self.current().name == 'main'
+        can_throw = parsed_function.name == 'main'
         if self.current().variant == 'THROWS':
             can_throw = True
             self.index_inc()
@@ -2634,7 +2638,7 @@ class Parser:
         return ns
 
     def merge_spans(self, one: TextSpan, two: TextSpan):
-        if two.file_id == self.compiler.current_file.file_id and two.start == 0 and two.end == 0:
+        if two.file_id == self.compiler.current_file and two.start == 0 and two.end == 0:
             return one
         if one.file_id != two.file_id:
             self.error('Cannot merge spans between different files', one)

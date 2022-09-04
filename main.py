@@ -12,6 +12,7 @@
 import os
 import sys
 import logging
+from pprint import pprint
 from typing import Union
 import pathlib
 
@@ -39,11 +40,11 @@ def main():
 
     tokens = Lexer(compiler).lex()
 
-    for token in tokens:
-        print_token(token)
+    # for token in tokens:
+    #     print_token(token)
 
     parsed_namespace = Parser.parse(compiler, tokens)
-
+    pprint(parsed_namespace)
 
 if __name__ == '__main__':
     main()
