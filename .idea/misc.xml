@@ -43,7 +43,7 @@
       <cssUriHistory />
     </CssSettings>
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.11 (cool-compiler-handmade)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10 (cool-compiler-handmade)" project-jdk-type="Python SDK" />
   <component name="PythonCompatibilityInspectionAdvertiser">
     <option name="version" value="3" />
   </component>

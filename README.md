@@ -4,6 +4,10 @@ This project is a compiler for an as-yet unnamed language based syntactically of
 
 Much of the current code is based off of translating the Jakt self-hosting source into python. Future plans include native code generation via [LLVM](https://llvm.org).
 
+## Python versions supported
+
+As of writing, the current version of llvmlite supports python versions 3.7 to 3.10, thus this project also requires a payhon version within that range.
+
 ## Project Status
 
 - [x] Lexing
@@ -11,17 +15,14 @@ Much of the current code is based off of translating the Jakt self-hosting sourc
 - [ ] Typechecking
 - [ ] Codegen
 
-Parsing is mostly complete, however the sumtype dependency is causing some issues which must be fixed before continuing to typechecking.
+### Next step
+
+Implement typechecking
 
 ## Dependencies
 
-### Current
-
 * [sumtype](https://github.com/lubieowoce/sumtype)
-
-### Future
-
-* [LLVM](https://llvm.org/)
+* [llvmlite](https://github.com/numba/llvmlite)
 
 ## Building
 
