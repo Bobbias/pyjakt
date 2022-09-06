@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import errno
-from typing import List, Dict
+from typing import List, Dict, NoReturn
 
 from compiler.error import CompilerError, print_error_json, print_error, eprintln
 from compiler.lexing.util import NamedTextFile, FileId, panic
@@ -81,3 +81,7 @@ class Compiler:
                         print_error_json(file_name, error)
                     else:
                         print_error(file_name, file.text, error)
+
+    def panic(self, message: str) -> NoReturn:
+        self.print_errors()
+        panic(message)
