@@ -18,6 +18,8 @@ class Compiler:
     current_file_contents: str = ''
     dump_lexer: bool = False
     dump_parser: bool = False
+    dump_type_hints: bool = False
+    dump_try_hints: bool = False
     ignore_parser_errors: bool = False
     lexer = None
     json_errors: bool = False
