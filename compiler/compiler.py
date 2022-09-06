@@ -23,6 +23,11 @@ class Compiler:
     ignore_parser_errors: bool = False
     lexer = None
     json_errors: bool = False
+    debug_print: bool = False
+
+    def dbg_print(self, message: str):
+        if self.debug_print:
+            print(message)
 
     def current_file_id(self):
         return self.current_file
