@@ -28,8 +28,8 @@ class CompilerError(sumtype):
 
 
 class MessageSeverity(sumtype):
-    def Hint(): ...# -> MessageSeverity
-    def Error(): ...# -> MessageSeverity
+    def Hint(): ...  # -> MessageSeverity
+    def Error(): ...  # -> MessageSeverity
 
     def color_code(self):
         if self.variant == 'Hint':
