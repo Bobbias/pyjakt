@@ -6,7 +6,7 @@ Much of the current code is based off of translating the Jakt self-hosting sourc
 
 ## Python versions supported
 
-As of writing, the current version of llvmlite supports python versions 3.7 to 3.10, thus this project also requires a payhon version within that range.
+As of writing, the current version of llvmlite supports python versions 3.7 to 3.10, thus this project also requires a python version within that range. 
 
 ## Project Status
 
