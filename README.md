@@ -8,6 +8,12 @@ Much of the current code is based off of translating the Jakt self-hosting sourc
 
 As of writing, the current version of llvmlite supports python versions 3.7 to 3.10, thus this project also requires a python version within that range. 
 
+## Project Goals and Rationale
+
+The primary goal of this project is to learn from Jakt's implementation through reimplementing its core logic in Python, as well as to learn the basics of code generation using llvm.
+
+I decided that instead of simply forking Jakt and adding LLVM codegen directly to it, a reimplementation would force me to engage with the entire codebase and give me a much more holistic view of the internal structure of the system.
+
 ## Project Status
 
 - [x] Lexing
