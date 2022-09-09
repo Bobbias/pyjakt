@@ -333,7 +333,7 @@ class ParsedStatement(sumtype):
     def UnsafeBlock(block: ParsedBlock, span: TextSpan):
         ...  # -> ParsedStatement
 
-    def DestructuringAssignment(variables: List[ParsedVarDecl], var_decl: Any, span: TextSpan):
+    def DestructuringAssignment(vars_: List[ParsedVarDecl], var_decl: Any, span: TextSpan):
         ...  # -> ParsedStatement
 
     def VarDecl(var: ParsedVarDecl, init: Any, span: TextSpan):
@@ -351,7 +351,7 @@ class ParsedStatement(sumtype):
     def While(condition: Any, block: ParsedBlock, span: TextSpan):
         ...  # -> ParsedStatement
 
-    def For(iterator_name: str, name_span: TextSpan, range: Any, block: ParsedBlock, span: TextSpan):
+    def For(iterator_name: str, name_span: TextSpan, range_: Any, block: ParsedBlock, span: TextSpan):
         ...  # -> ParsedStatement
 
     def Break(span: TextSpan):
@@ -388,9 +388,9 @@ class ParsedStatement(sumtype):
         elif self.variant == 'Defer':
             return self.stmt == other.stmt
         elif self.variant == 'DestructuringAssignment':
-            if len(self.variables) != len(other.variables):
+            if len(self.vars_) != len(other.vars_):
                 return False
-            for lhs_var, rhs_var in zip(self.variables, other.variables):
+            for lhs_var, rhs_var in zip(self.vars_, other.vars_):
                 if lhs_var != rhs_var:
                     return False
             if self.var_decl != other.var_decl:
@@ -403,7 +403,7 @@ class ParsedStatement(sumtype):
         elif self.variant == 'While':
             return self.condition == other.condition and self.block == other.block
         elif self.variant == 'For':
-            return self.iterator_name == other.iterator_name and self.range == other.range and self.block == other.block
+            return self.iterator_name == other.iterator_name and self.range_ == other.range_ and self.block == other.block
         elif self.variant == 'Return':
             # if both are empty, they're the same
             if not self.expr and not other.expr:
