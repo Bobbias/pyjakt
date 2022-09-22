@@ -18,12 +18,16 @@ I decided that instead of simply forking Jakt and adding LLVM codegen directly t
 
 - [x] Lexing
 - [x] Parsing
-- [ ] Typechecking
+- [X] Typechecking
 - [ ] Codegen
 
-### Next step
+Typechecking code translation is mostly complete. All functions have been implemented, however bugs prevent the script from completing a typechecking pass.
 
-Implement typechecking
+### Next steps
+
+* Debug typechecking, parsing, and lexing until a complete typechecking pass will complete.
+* Figure out basic code generation using llvmlite.
+* Figure out how to compile and link the Jakt prelude to our code generation.
 
 ## Dependencies
 
