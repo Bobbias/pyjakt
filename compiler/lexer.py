@@ -4,15 +4,14 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 # Third party imports
+from inspect import currentframe
 from re import match, UNICODE
-from typing import List, Type
+from typing import Callable, Literal, Type, Tuple, Optional
 
 # First party imports
-from compiler.compiler import Compiler
-from compiler.error import CompilerError
 from compiler.lexing.token import Token
-from compiler.lexing.util import NamedTextFile, TextSpan, LiteralSuffix, is_octdigit, is_bindigit, is_digit, \
-    is_hexdigit, NumericConstant, DebugInfo, FileId
+from compiler.lexing.util import TextPosition, TextSpan, LiteralSuffix, is_octdigit, is_bindigit, is_digit, \
+    is_hexdigit, NumericConstant, DebugInfo
 
 
 def verify_type(value: int | float, val_type: Type[int | float]):
@@ -20,7 +19,7 @@ def verify_type(value: int | float, val_type: Type[int | float]):
     return True if type(value) is val_type else False
 
 
-def token_from_keyword_or_identifier(string: str, span: TextSpan):
+def token_from_keyword_or_identifier(string: str, span: TextSpan)->Token:
     if string == 'and':
         return Token.AND(span=span)
     elif string == 'anon':
@@ -114,81 +113,67 @@ def token_from_keyword_or_identifier(string: str, span: TextSpan):
 
 
 class Lexer:
-    file: FileId
-    compiler: Compiler
+    characters: str
+    error_callback: Optional[Callable[[str,TextSpan],None]]
 
     # internal context
     current_row: int = 0
     current_column: int = 0
-
     lexing_string: bool = False
-
     token_start: int = 0
     token_end: int = 0
-
-    _spaces_per_tab: int = 4
-    _value_string: str = ''
-    _floating: bool = False
-    _number_too_large: bool = False
-
     index: int = 0
-
     debug_info = DebugInfo()
-
     whitespace_chars = [' ', '\t', '\r', '\f', '\v']
+    _row: int = 0
+    _col: int = 0
 
-    def __init__(self, compiler: Compiler):
-        self.compiler = compiler
-        self.file = compiler.current_file
+    def __init__(self, characters: str, error_callback: Optional[Callable[[str,TextSpan],None]] = None):
+        self.characters = characters
+        self.error_callback = error_callback
 
     def __iter__(self):
-        # ensure we have a file and compiler before trying to lex
-        if not self.file or not self.compiler:
-            raise ValueError('Must provide a file to lex')
-
-        # Note: This may be unnecessary, or it may be unnecessary to provide defaults above
-        self.current_row = 0
-        self.current_column = 0
-        self.lexing_string = False
-        self.token_start = 0
-        self.token_end = 0
-        self._spaces_per_tab = 4
-        self.index = 0
         return self
 
     def __next__(self):
-        if result := self.tokenize_file():
+        if result := self.next_token():
             if result.variant == 'EOF':
                 raise StopIteration
             return result
         else:
             raise StopIteration
 
-    def dbg_print_current(self, context_size=15):
+    def dbg_print_current(self):
         default_text_color = '\x1b[38;5;250m'
         dark_red = '\x1b[38;5;52m'
+        context, current_offset = self.get_context()
+        message = (
+            "==>" +
+            default_text_color + context[:current_offset].encode('unicode_escape').decode('utf-8') +
+            dark_red + context[current_offset].encode('unicode_escape').decode('utf-8') +
+            default_text_color + context[current_offset+1:].encode('unicode_escape').decode('utf-8')
+        )
+        print(message)
 
-        start = max(0, self.index - context_size)
-        end = min(self.index + context_size, len(self.compiler.current_file_contents))
-
-        start_text = self.compiler.current_file_contents[start:self.index]
-        start_text = start_text.encode('unicode_escape').decode('utf-8')
-
-        current_char = self.compiler.current_file_contents[self.index]
-        current_char = current_char.encode('unicode_escape').decode('utf-8')
-
-        message = default_text_color + start_text + dark_red + current_char + default_text_color
-        print(message, end='')
-        if self.index + 1 < len(self.compiler.current_file_contents):
-            # If there's something to the right of our current character, print it as well
-            end_text = self.compiler.current_file_contents[self.index+1:end].encode('unicode_escape').decode('utf-8')
-            print(end_text, end='\n\n')
+    def get_context(self)->Tuple[str,int]:
+        if self.index > 0:
+            start = max(0, self.characters.rfind("\n",0,self.index) + 1)
         else:
-            # if there's nothing more to add, just print the default line end, aka new line.
-            print('\n')
+            start = 0
+        end = self.characters.find("\n",self.index+1)
+        if end == -1:
+            end = len(self.characters)
+        return self.characters[start:end], self.index - start
 
-    def index_inc(self, steps: int = 1, debug: bool =False):
-        self.index += steps
+    def index_inc(self, steps: int = 1, debug: bool = False):
+        new_index = min(self.index + steps, len(self.characters))
+        for c in self.characters[self.index:new_index]:
+            if c == "\n":
+                self._col = 0
+                self._row += 1
+            else:
+                self._col += 1
+        self.index = new_index
         if debug:
             from inspect import stack
             caller = stack()[1].function
@@ -197,198 +182,213 @@ class Lexer:
             print(f'\x1b[38;5;{color}m{caller}, {line}\x1b[38;5;250m: self.index += {steps}: {self.index}')
 
     def error(self, message: str, span: TextSpan = TextSpan()):
-        self.compiler.errors.append(CompilerError.Message(message, span))
+        if self.error_callback:
+            self.error_callback(message, span)
 
-    def peek(self, steps: int = 1):
+    def take_while_with_span(self, predicate: Callable[[str], bool])->Tuple[str, TextSpan]:
+        n = 0
+        while not self.eof() and predicate(self.peek(n)):
+            n += 1
+        return self.take_with_span(n)
+
+    def take_while(self, predicate: Callable[[str], bool])->str:
+        string, _ = self.take_while_with_span(predicate)
+        return string
+
+    def take(self, n: int = 1)->str:
+        start = self.index
+        self.index_inc(n)
+        result = self.characters[start:self.index]
+        return result
+
+    def take_with_span(self, n: int = 1)->Tuple[str, TextSpan]:
+        start = self.position()
+        value = self.take(n)
+        span = self.span_from(start)
+        return value, span
+
+    def position(self)->TextPosition:
+        return TextPosition(self.index, self._row, self._col)
+
+    def peek(self, steps: int = 0)->str:
         end = self.index + steps
-        if end >= len(self.compiler.current_file_contents):
-            return ''
-        return self.compiler.current_file_contents[self.index + steps]
+        if end >= len(self.characters):
+            result = ''
+        else:
+            result = self.characters[self.index + steps]
+        return result
 
-    def peek_behind(self, steps: int = 1):
-        index = self.index - steps
+    def previous(self)->str:
+        index = self.index - 1
         if index < 0:
             return ''
-        return self.compiler.current_file_contents[index]
+        return self.characters[index]
 
-    def lex_plus(self):
-        start = self.index
+    def lex_plus(self)->Token:
+        start = self.position()
         self.index_inc()
         match self.peek():
             case '=':
                 self.index_inc()
-                return Token.PLUS_EQUAL(self.span(start, self.index))
+                return Token.PLUS_EQUAL(self.span_from(start))
             case '+':
                 self.index_inc()
-                return Token.PLUS_PLUS(self.span(start, self.index))
+                return Token.PLUS_PLUS(self.span_from(start))
             case _:
-                return Token.PLUS(self.span(self.index - 1, self.index))
+                return Token.PLUS(self.span_from(start))
 
     def lex_minus(self):
-        start = self.index
+        start = self.position()
         match self.peek():
             case '=':
                 self.index_inc(2)
-                return Token.MINUS_EQUAL(self.span(start, self.index))
+                return Token.MINUS_EQUAL(self.span_from(start))
             case '-':
                 self.index_inc(2)
-                return Token.MINUS_MINUS(self.span(start, self.index))
+                return Token.MINUS_MINUS(self.span_from(start))
             case '>':
                 self.index_inc(2)
-                return Token.ARROW(self.span(start, self.index))
+                return Token.ARROW(self.span_from(start))
             case _:
                 self.index_inc()
-                return Token.MINUS(self.span(self.index - 1, self.index))
+                return Token.MINUS(self.span_from(start))
 
-    def lex_asterisk(self):
-        start = self.index
+    def lex_asterisk(self)->Token:
+        start = self.position()
         self.index_inc()
         match self.peek():
             case '=':
                 self.index_inc()
-                return Token.ASTERISKEQUAL(self.span(start, self.index))
+                return Token.ASTERISKEQUAL(self.span_from(start))
             case _:
-                return Token.ASTERISK(self.span(start, self.index))
+                return Token.ASTERISK(self.span_from(start))
 
-    def lex_forward_slash(self):
-        start = self.index
-        self.index_inc()
+    def lex_forward_slash(self)->Token:
+        start = self.position()
+        self.take()
         next_char = self.peek()
         if next_char == '=':
-            self.index_inc()
-            return Token.FORWARD_SLASH_EQUAL(self.span(start, self.index))
+            self.take()
+            return Token.FORWARD_SLASH_EQUAL(self.span_from(start))
         if next_char != '/':
-            return Token.FORWARD_SLASH(self.span(start, self.index))
+            return Token.FORWARD_SLASH(self.span_from(start))
         # We're in a comment, swallow to end of line.
-        while not self.eof():
-            next_char = self.peek()
-            self.index_inc()
-            if next_char == '\n':
-                break
-        if result := self.__next__():
+        self.take_while(lambda c: c != '\n')
+        if result := next(self):
             return result
         else:
-            return Token.EOF(self.span(self.index, self.index))
+            return Token.EOF(self.span_from(self.position()))
 
-    def lex_question_mark(self):
-        start = self.index
+    def lex_question_mark(self)->Token:
+        start = self.position()
         self.index_inc()
         match self.peek():
             case '?':
                 self.index_inc()
                 if self.peek() == '=':
                     self.index_inc()
-                    return Token.QUESTION_MARK_QUESTION_MARK_EQUAL(self.span(start, self.index))
-                return Token.QUESTION_MARK_QUESTION_MARK(self.span(start, self.index))
+                    return Token.QUESTION_MARK_QUESTION_MARK_EQUAL(self.span_from(start))
+                return Token.QUESTION_MARK_QUESTION_MARK(self.span_from(start))
             case _:
-                return Token.QUESTION_MARK(self.span(start, self.index))
+                return Token.QUESTION_MARK(self.span_from(start))
 
-    def lex_quoted_string(self, delimiter: str):
-        start = self.index
-        self.index_inc()
-
+    def lex_quoted_string(self, delimiter: str)->Token:
+        start = self.position()
+        self.take()
         if self.eof():
             # error
             return Token.INVALID(self.span(start, start))
-
         escaped = False
-
-        while not self.eof() and (escaped or self.peek() != delimiter):
-            next_char = self.peek()
-            if next_char in ['\r', '\n']:
-                self.index_inc()
-                continue
-
-            if not escaped and self.peek() == '\\':
+        n = 0
+        while not self.eof() and (escaped or self.peek(n) != delimiter):
+            if self.peek(n) in ['\r', '\n']:
+                pass
+            elif not escaped and self.peek(n) == '\\':
                 escaped = True
             else:
                 escaped = False
-            self.index_inc()
-
-        self.index_inc()
-        end = self.index
-
-        string = self.compiler.current_file_contents[start + 1: end]
-
-        if self.compiler.current_file_contents[self.index] == delimiter:
-            # print(f'delimiter reached: {self.compiler.current_file_contents[self.index]}')
-            if not self.eof():
-                self.index_inc()
-
+            n += 1
+        string = self.take(n)
+        if self.peek() != delimiter:
+            return Token.INVALID(self.span_from(start))
+        self.take()
+        span = self.span_from(start)
         if delimiter == '\'':
-            return Token.SINGLE_QUOTE_STRING(string, self.span(start, end))
-        return Token.QUOTED_STRING(string, self.span(start, end))
+            return Token.SINGLE_QUOTE_STRING(string, span)
+        else:
+            return Token.QUOTED_STRING(string, span)
 
-    def lex_pipe(self):
-        start = self.index
+    def lex_pipe(self)->Token:
+        start = self.position()
         self.index_inc()
         match self.peek():
             case '=':
                 self.index_inc()
-                return Token.PIPE_EQUAL(self.span(start, self.index))
+                return Token.PIPE_EQUAL(self.span_from(start))
             case _:
-                return Token.PIPE(self.span(start, self.index))
+                return Token.PIPE(self.span_from(start))
 
-    def lex_ampersand(self):
-        start = self.index
+    def lex_ampersand(self)->Token:
+        start = self.position()
         self.index_inc()
         match self.peek():
             case '=':
                 self.index_inc()
-                return Token.AMPERSAND_EQUAL(self.span(start, self.index))
+                return Token.AMPERSAND_EQUAL(self.span_from(start))
             case _:
-                return Token.AMPERSAND(self.span(start, self.index))
+                return Token.AMPERSAND(self.span_from(start))
 
-    def lex_caret(self):
-        start = self.index
+    def lex_caret(self)->Token:
+        start = self.position()
         self.index_inc()
         match self.peek():
             case '=':
                 self.index_inc()
-                return Token.CARET_EQUAL(self.span(start, self.index))
+                return Token.CARET_EQUAL(self.span_from(start))
             case _:
-                return Token.CARET(self.span(start, self.index))
+                return Token.CARET(self.span_from(start))
 
-    def lex_percent_sign(self):
-        start = self.index
+    def lex_percent_sign(self)->Token:
+        start = self.position()
         self.index_inc()
         match self.peek():
             case '=':
                 self.index_inc()
-                return Token.PERCENT_SIGN_EQUAL(self.span(start, self.index))
+                return Token.PERCENT_SIGN_EQUAL(self.span_from(start))
             case _:
-                return Token.PERCENT_SIGN(self.span(start, self.index))
+                return Token.PERCENT_SIGN(self.span_from(start))
 
-    def lex_exclamation_point(self):
-        start = self.index
+    def lex_exclamation_point(self)->Token:
+        start = self.position()
         self.index_inc()
         match self.peek():
             case '=':
                 self.index_inc()
-                return Token.NOT_EQUAL(self.span(start, self.index))
+                return Token.NOT_EQUAL(self.span_from(start))
             case _:
-                return Token.EXCLAMATION_POINT(self.span(start, self.index))
+                return Token.EXCLAMATION_POINT(self.span_from(start))
 
-    def lex_number_or_name(self):  # -> Token
-        start = self.index
-
-        # guard against stray EOF
+    def lex_number_or_name(self)->Token:
         if self.eof():
             self.error('unexpected eof')
-            return Token.INVALID(self.span(self.index, self.index + 1))
+            return Token.INVALID(self.span_from(self.position()))
+        elif self.peek().isdigit():
+            return self.lex_number()
+        elif self.peek().isalpha() or self.peek() == '_':
+            return self.lex_name()
+        else:
+            value, span = self.take_with_span(1)
+            self.error(f'unexpected character: {value}', span)  # todo: handle span in error stuff
+            return Token.INVALID(span)
 
-        while self.peek().isalnum() or self.peek() == '_':
-            self.index_inc()
-        self.index_inc()  # note: is this correct?
-        end = self.index
-        chars = self.compiler.current_file_contents[start:end]
-        span = self.span(start, end)
+    def lex_name(self)->Token:
+        chars, span = self.take_while_with_span(lambda c:c.isalnum() or c == "_")
         return token_from_keyword_or_identifier(chars, span)
 
-    def consume_numeric_literal_suffix(self):
-        next_char = self.compiler.current_file_contents[self.index]
+    def consume_numeric_literal_suffix(self, default:LiteralSuffix=LiteralSuffix.I64())->LiteralSuffix:
+        next_char = self.peek()
         if next_char not in ['u', 'i', 'f']:
-            return None
+            return default
         elif next_char == 'u' and self.peek(2) == 'z':
             self.index_inc(2)
             return LiteralSuffix.UZ()
@@ -400,13 +400,13 @@ class Lexer:
 
         while self.peek(local_index).isdigit():
             if local_index > 3:
-                return None
-            value = self.compiler.current_file_contents[self.index + local_index]
+                return default
+            value = self.peek(local_index)
             local_index += 1
             digit = int(value)
             width = width * 10 + digit
 
-        suffix = None
+        suffix = default
         match next_char:
             case 'u':
                 match width:
@@ -438,147 +438,113 @@ class Lexer:
         self.index_inc(local_index)
         return suffix
 
-    def lex_number(self):
-        start: int = self.index
-        number_too_large: bool = False
-        floating: bool = False
-        self._value_string = ''
-        self._floating = False
-        self._number_too_large = False
-
+    def lex_number(self)->Token:
         if self.peek() == '0':
-            match self.peek(2):
+            match self.peek(1):
                 case 'x':
-                    return self.lex_hex_number(start)
+                    return self.lex_hex_number()
                 case 'o':
-                    return self.lex_octal_number(start)
+                    return self.lex_octal_number()
                 case 'b':
-                    return self.lex_binary_number(start)
+                    return self.lex_binary_number()
+        return self.lex_decimal_number()
 
-        self.handle_floats()
 
-        end = self.index
-        span = self.span(start, end)
-
-        if number_too_large:
-            # err
-            return Token.INVALID(span)
-
-        if self.peek() == '_':
-            # err
-            return Token.INVALID(span)
-
-        default_suffix = LiteralSuffix.NONE()
-        if floating:
-            default_suffix = LiteralSuffix.F64
-
-        result = self.consume_numeric_literal_suffix()
-        suffix = result if result else default_suffix
-
-        is_float_suffix = True if suffix in [LiteralSuffix.F64, LiteralSuffix.F32] else False
-
-        if floating and not is_float_suffix:
-            return Token.INVALID(span)
-
-        if floating:
-            value = float(self._value_string)
-        else:
-            # FIXME: This is not great error handling.
-            try:
-                value = int(self._value_string)
-            except ValueError as e:
-                current_file_id = self.compiler.current_file
-                current_file_name = self.compiler.get_file_path(current_file_id)
-                print(f'Error processing file `{current_file_name}`, index: {self.index}: {self.compiler.current_file_contents[max(0,self.index-10):min(self.index+10, len(self.compiler.current_file_contents))]}')
-                raise e
-
-        token = self.make_numeric_constant(value, suffix, span)
-        return token
+    def lex_decimal_number(self)->Token:
+        start = self.position()
+        value = self.take_while(str.isdigit)
+        default_suffix = LiteralSuffix.I64()
+        if self.peek() == ".":
+            self.take()
+            default_suffix = LiteralSuffix.F64()
+            value += "." + self.take_while(str.isdigit)
+        suffix = self.consume_numeric_literal_suffix(default_suffix)
+        span = self.span_from(start)
+        return self.make_numeric_constant(value, suffix, span)
 
     def eof(self):
-        return self.index >= len(self.compiler.current_file_contents)
+        return self.index >= len(self.characters)
 
-    def lex_colon(self):
-        start = self.index
+    def lex_colon(self)->Token:
+        start = self.position()
         self.index_inc()
         match self.peek():
             case ':':
-                return Token.COLON_COLON(self.span(start, self.index + 1))
+                self.index_inc()
+                return Token.COLON_COLON(self.span_from(start))
             case _:
-                return Token.COLON(self.span(start, self.index))
+                return Token.COLON(self.span_from(start))
 
-    def lex_less_than(self):
-        start = self.index
+    def lex_less_than(self)->Token:
+        start = self.position()
         self.index_inc()
 
-        match self.compiler.current_file_contents[self.index]:
+        match self.peek():
             case '=':
                 self.index_inc()
-                return Token.LESS_THAN_OR_EQUAL(self.span(start, self.index))
+                return Token.LESS_THAN_OR_EQUAL(self.span_from(start))
             case '<':
                 self.index_inc()
                 match self.peek():
                     case '<':
                         self.index_inc()
-                        return Token.LEFT_ARITHMETIC_SHIFT(self.span(start, self.index))
+                        return Token.LEFT_ARITHMETIC_SHIFT(self.span_from(start))
                     case '=':
                         self.index_inc()
-                        return Token.LEFT_SHIFT_EQUAL(self.span(start, self.index))
+                        return Token.LEFT_SHIFT_EQUAL(self.span_from(start))
                     case _:
-                        return Token.LEFT_SHIFT(self.span(self.index - 1, self.index))
+                        return Token.LEFT_SHIFT(self.span_from(start))
             case _:
-                return Token.LESS_THAN(self.span(self.index - 1, self.index))
+                return Token.LESS_THAN(self.span_from(start))
 
     def lex_greater_than(self):
-        start = self.index
+        start = self.position()
         match self.peek():
             case '=':
                 self.index_inc()
-                return Token.GREATER_THAN_OR_EQUAL(self.span(start, self.index))
+                return Token.GREATER_THAN_OR_EQUAL(self.span_from(start))
             case '>':
                 self.index_inc()
                 match self.peek():
                     case '>':
                         self.index_inc()
-                        return Token.RIGHT_ARITHMETIC_SHIFT(self.span(start, self.index))
+                        return Token.RIGHT_ARITHMETIC_SHIFT(self.span_from(start))
                     case '=':
                         self.index_inc()
-                        return Token.RIGHT_SHIFT_EQUAL(self.span(start, self.index))
+                        return Token.RIGHT_SHIFT_EQUAL(self.span_from(start))
                     case _:
                         self.index_inc()
-                        return Token.RIGHT_SHIFT(self.span(self.index - 1, self.index))
+                        return Token.RIGHT_SHIFT(self.span_from(start))
             case _:
                 self.index_inc()
-                return Token.GREATER_THAN(self.span(self.index - 1, self.index))
+                return Token.GREATER_THAN(self.span_from(start))
 
-    def lex_dot(self):
-        start = self.index
+    def lex_dot(self)->Token:
+        start = self.position()
         self.index_inc()
-        return Token.DOT(self.span(start, self.index))
+        return Token.DOT(self.span_from(start))
 
-    def lex_equals(self):
-        start = self.index
+    def lex_equals(self)->Token:
+        start = self.position()
         self.index_inc()
         match self.peek():
             case '=':
                 self.index_inc()
-                return Token.DOUBLE_EQUAL(self.span(start, self.index))
+                return Token.DOUBLE_EQUAL(self.span_from(start))
             case '>':
                 self.index_inc()
-                return Token.FAT_ARROW(self.span(start, self.index))
+                return Token.FAT_ARROW(self.span_from(start))
             case _:
-                return Token.EQUAL(self.span(start, self.index))
+                return Token.EQUAL(self.span_from(start))
 
-    def current_indentation(self):
-        result = len(match(r"\s*", self.compiler.current_file_contents.expandtabs(4), UNICODE).group(0))
-        return result
+    def span(self, start: TextPosition, end: TextPosition) -> TextSpan:
+        return TextSpan(start=start, end=end)
 
-    def span(self, start: int, end: int) -> TextSpan:
-        return TextSpan(file_id=self.compiler.current_file, start=start, end=end)
+    def span_from(self, start: TextPosition) -> TextSpan:
+        return self.span(start, self.position())
 
-    def lex_prefixed_number(self, base=10):
-        self.index_inc(2)
-        start = self.index
+    def consume_prefixed_number(self, base=10)->Tuple[str, TextSpan]:
+        self.take(2)
         testfn = None
         match base:
             case 2:
@@ -589,82 +555,65 @@ class Lexer:
                 testfn = is_digit
             case 16:
                 testfn = is_hexdigit
+            case _:
+                raise Exception("unknown base %s" % base)
+        return self.take_while_with_span(lambda c: testfn(c) or c == "_")
 
-        while testfn(self.peek()):
-            if self.peek() == '_':
-                self.index_inc()
-        string = self.compiler.current_file_contents[start:self.index]
-        return int(string, base)
-
-    def make_numeric_constant(self, number: int | float, suffix: LiteralSuffix, span: TextSpan):
+    def make_numeric_constant(self, number: str, suffix: LiteralSuffix, span: TextSpan):
         match suffix.variant:
             case 'U8':
-                return Token.NUMBER(NumericConstant.U8(number), span) \
-                    if verify_type(number, int) else Token.INVALID(span)
+                return Token.NUMBER(NumericConstant.U8(number), span)
             case 'U16':
-                return Token.NUMBER(NumericConstant.U16(number), span) \
-                    if verify_type(number, int) else Token.INVALID(span)
+                return Token.NUMBER(NumericConstant.U16(number), span)
             case 'U32':
-                return Token.NUMBER(NumericConstant.U32(number), span) \
-                    if verify_type(number, int) else Token.INVALID(span)
+                return Token.NUMBER(NumericConstant.U32(number), span)
             case 'U64':
-                return Token.NUMBER(NumericConstant.U64(number), span) \
-                    if verify_type(number, int) else Token.INVALID(span)
+                return Token.NUMBER(NumericConstant.U64(number), span)
             case 'I8':
-                return Token.NUMBER(NumericConstant.I8(number), span) \
-                    if verify_type(number, int) else Token.INVALID(span)
+                return Token.NUMBER(NumericConstant.I8(number), span)
             case 'I16':
-                return Token.NUMBER(NumericConstant.I16(number), span) \
-                    if verify_type(number, int) else Token.INVALID(span)
+                return Token.NUMBER(NumericConstant.I16(number), span)
             case 'I32':
-                return Token.NUMBER(NumericConstant.I32(number), span) \
-                    if verify_type(number, int) else Token.INVALID(span)
+                return Token.NUMBER(NumericConstant.I32(number), span)
             case 'I64':
-                return Token.NUMBER(NumericConstant.I64(number), span) \
-                    if verify_type(number, int) else Token.INVALID(span)
+                return Token.NUMBER(NumericConstant.I64(number), span)
             case 'F32':
-                return Token.NUMBER(NumericConstant.F32(number), span) \
-                    if verify_type(number, float) else Token.INVALID(span)
+                return Token.NUMBER(NumericConstant.F32(number), span)
             case 'U64':
-                return Token.NUMBER(NumericConstant.F64(number), span) \
-                    if verify_type(number, float) else Token.INVALID(span)
+                return Token.NUMBER(NumericConstant.F64(number), span)
             case _:
                 return Token.INVALID(span)
 
-    def tokenize_file(self):  # -> Token
+    def next_token(self)->Token:
         # Adapted from the jakt compiler's Lexer.next() function.
         # Consume whitespace until a character is encountered or Eof is
         # reached. For Eof return a token.
-        while True:
-            if self.index >= len(self.compiler.current_file_contents):
-                return Token.EOF(self.span(self.index - 1, self.index - 1))
-            if self.compiler.current_file_contents[self.index] in self.whitespace_chars:
-                self.index_inc()
-            else:
-                break
+        self.skip_whitespace()
+        if self.eof():
+            return Token.EOF(self.span_from(self.position()))
 
-        start = self.index
+        start = self.position()
         self.dbg_print_current()
 
-        match self.compiler.current_file_contents[self.index]:
+        match self.peek():
             case '(':
                 self.index_inc()
-                return Token.LPAREN(self.span(start, self.index))
+                return Token.LPAREN(self.span_from(start))
             case ')':
                 self.index_inc()
-                return Token.RPAREN(self.span(start, self.index))
+                return Token.RPAREN(self.span_from(start))
             case '[':
                 self.index_inc()
-                return Token.LSQUARE(self.span(start, self.index))
+                return Token.LSQUARE(self.span_from(start))
             case ']':
                 self.index_inc()
-                return Token.RSQUARE(self.span(start, self.index))
+                return Token.RSQUARE(self.span_from(start))
             case '{':
                 self.index_inc()
-                return Token.LCURLY(self.span(start, self.index))
+                return Token.LCURLY(self.span_from(start))
             case '}':
                 self.index_inc()
-                return Token.RCURLY(self.span(start, self.index))
+                return Token.RCURLY(self.span_from(start))
             case '<':
                 return self.lex_less_than()
             case '>':
@@ -673,13 +622,13 @@ class Lexer:
                 return self.lex_dot()
             case ',':
                 self.index_inc()
-                return Token.COMMA(self.span(start, self.index))
+                return Token.COMMA(self.span_from(start))
             case '~':
                 self.index_inc()
-                return Token.TILDE(self.span(start, self.index))
+                return Token.TILDE(self.span_from(start))
             case ';':
                 self.index_inc()
-                return Token.SEMICOLON(self.span(start, self.index))
+                return Token.SEMICOLON(self.span_from(start))
             case ':':
                 return self.lex_colon()
             case '?':
@@ -704,12 +653,12 @@ class Lexer:
                 return self.lex_ampersand()
             case '$':
                 self.index_inc()
-                return Token.DOLLAR_SIGN(self.span(start, self.index))
+                return Token.DOLLAR_SIGN(self.span_from(start))
             case '=':
                 return self.lex_equals()
             case '\n':
                 self.index_inc()
-                return Token.EOL(self.span(start, self.index))
+                return Token.EOL(self.span_from(start))
             case '\'':
                 return self.lex_quoted_string(delimiter='\'')
             case '\"':
@@ -719,7 +668,7 @@ class Lexer:
             case 'c':
                 return self.lex_character_constant_or_name()
             case '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '0':
-                self.lex_number()
+                return self.lex_number()
             case _:
                 return self.lex_number_or_name()
 
@@ -731,9 +680,10 @@ class Lexer:
         if is_byte:
             self.index_inc()
 
-        start = self.index
+        start = self.position()
         self.index_inc()
-
+        first = self.peek()
+        second = self.peek(1)
         escaped = False
 
         while not self.eof() and (escaped or self.peek() != '\''):
@@ -749,82 +699,44 @@ class Lexer:
             self.error('Expected single quote', self.span(start, start))
         self.index_inc()
 
-        quote = self.compiler.current_file_contents[start + 1]
+        quote = first
         if escaped:
-            quote += self.compiler.current_file_contents[start + 2]
+            quote += second
 
-        end = self.index
         if is_byte:
-            return Token.SINGLE_QUOTE_BYTE_STRING(quote, self.span(start, end))
-        return Token.SINGLE_QUOTE_STRING(quote, self.span(start, end))
+            return Token.SINGLE_QUOTE_BYTE_STRING(quote, self.span_from(start))
+        else:
+            return Token.SINGLE_QUOTE_STRING(quote, self.span_from(start))
 
-    def lex_hex_number(self, start: int):
-        value: int = self.lex_prefixed_number(base=16)
-        end = self.index
-        span = self.span(start, end)
-        if self.peek_behind() == '_':
+    def skip_whitespace(self):
+        self.take_while(lambda c: c in self.whitespace_chars)
+
+    def lex_hex_number(self)->Token:
+        value, span = self.consume_prefixed_number(base=16)
+        if value.endswith('_'):
             self.error('Hexadecimal number literal cannot end with underscore', span)
             return Token.INVALID(span)
         suffix = self.consume_numeric_literal_suffix()
         return self.make_numeric_constant(value, suffix, span)
 
-    def lex_octal_number(self, start: int):
-        value: int = self.lex_prefixed_number(base=8)
-        end = self.index
-        span = self.span(start, end)
-        if self.peek_behind() == '_':
+    def lex_octal_number(self)->Token:
+        value, span = self.consume_prefixed_number(base=8)
+        if self.previous() == '_':
             self.error('Octal number literal cannot end with underscore', span)
             return Token.INVALID(span)
         suffix = self.consume_numeric_literal_suffix()
-        if self.peek().isalnum():
+        if value.endswith('_'):
             self.error('Could not parse octal number', span)
             return Token.INVALID(span)
         return self.make_numeric_constant(value, suffix, span)
 
-    def lex_binary_number(self, start: int):
-        value: int = self.lex_prefixed_number(base=2)
-        end = self.index
-        span = self.span(start, end)
-        if self.peek_behind() == '_':
+    def lex_binary_number(self)->Token:
+        value, span = self.consume_prefixed_number(base=2)
+        if value.endswith('_'):
             self.error('Binary number literal cannot end with underscore', span)
             return Token.INVALID(span)
         suffix = self.consume_numeric_literal_suffix()
         if self.peek().isalnum():
-            self.error('Could not parse octal number', span)
+            self.error('Could not parse binary number', span)
             return Token.INVALID(span)
         return self.make_numeric_constant(value, suffix, span)
-
-    def handle_floats(self):
-        start = self.index
-        while not self.eof():
-            digit = self.compiler.current_file_contents[self.index]
-            if digit == '.':
-                if not self.peek().isdigit() or self._floating:
-                    break
-                self._floating = True
-                self.index_inc()
-                continue
-            elif not digit.isdigit():
-                break
-
-            self._value_string = self.compiler.current_file_contents[start:self.index+1]
-            self.index_inc()
-
-            if not self._floating:
-                if int(self._value_string).bit_length() > 64:
-                    self._number_too_large = True
-            else:
-                try:
-                    float(self._value_string)
-                except ValueError:
-                    self.error('Cannot convert number to float', self.span(start, self.index))
-                    return Token.INVALID(self.span(start, self.index))
-                except OverflowError:
-                    self.error('Float number too large', self.span(start, self.index))
-                    self._number_too_large = True
-
-            if self.peek() == '_':
-                if self.peek(2).isdigit():
-                    self.index_inc()
-                else:
-                    break

@@ -5,6 +5,9 @@
 
 from __future__ import annotations
 
+import inspect
+import traceback
+
 # Third party imports
 from typing import List, Tuple, Union, Any, Optional
 from compiler.lexer import Lexer
@@ -14,7 +17,7 @@ from sumtype import sumtype
 from compiler.compiler import Compiler
 from compiler.error import CompilerError
 from compiler.lexing.token import Token
-from compiler.lexing.util import TextSpan, NumericConstant, DebugInfo
+from compiler.lexing.util import FileTextSpan, FileTextSpan, NumericConstant, DebugInfo, TextSpan
 
 from compiler.parsedtypes import ParsedField, ValueEnumVariant, SumEnumVariant, EnumVariantPatternArgument, ParsedBlock, \
     ParsedParameter, ParsedVarDecl, ParsedCall, ParsedMatchCase, ParsedFunction, ParsedNamespace, ParsedExternImport, \
@@ -22,46 +25,46 @@ from compiler.parsedtypes import ParsedField, ValueEnumVariant, SumEnumVariant, 
 
 
 class ParsedType(sumtype):
-    def Name(name: str, span: TextSpan):
+    def Name(name: str, span: FileTextSpan):
         ...  # -> ParsedType
 
-    def NamespacedName(name: str, namespaces: List[str], params: List[Any], span: TextSpan):
+    def NamespacedName(name: str, namespaces: List[str], params: List[Any], span: FileTextSpan):
         ...  # -> ParsedType
 
-    def GenericType(name: str, generic_parameters: List[Any], span: TextSpan):
+    def GenericType(name: str, generic_parameters: List[Any], span: FileTextSpan):
         ...  # -> ParsedType
 
-    def Array(inner: Any, span: TextSpan):
+    def Array(inner: Any, span: FileTextSpan):
         ...  # -> ParsedType
 
-    def Dictionary(key: Any, value: Any, span: TextSpan):
+    def Dictionary(key: Any, value: Any, span: FileTextSpan):
         ...  # -> ParsedType
 
-    def Tuple(types: List[Any], span: TextSpan):
+    def Tuple(types: List[Any], span: FileTextSpan):
         ...  # -> ParsedType
 
-    def Set(inner: Any, span: TextSpan):
+    def Set(inner: Any, span: FileTextSpan):
         ...  # -> ParsedType
 
-    def Optional(inner: Any, span: TextSpan):
+    def Optional(inner: Any, span: FileTextSpan):
         ...  # -> ParsedType
 
-    def Reference(inner: Any, span: TextSpan):
+    def Reference(inner: Any, span: FileTextSpan):
         ...  # -> ParsedType
 
-    def MutableReference(inner: Any, span: TextSpan):
+    def MutableReference(inner: Any, span: FileTextSpan):
         ...  # -> ParsedType
 
-    def RawPointer(inner: Any, span: TextSpan):
+    def RawPointer(inner: Any, span: FileTextSpan):
         ...  # -> ParsedType
 
-    def WeakPointer(inner: Any, span: TextSpan):
+    def WeakPointer(inner: Any, span: FileTextSpan):
         ...  # -> ParsedType
 
-    def Function(params: List[ParsedParameter], can_throw: bool, return_type: Any, span: TextSpan):
+    def Function(params: List[ParsedParameter], can_throw: bool, return_type: Any, span: FileTextSpan):
         ...  # -> ParsedType
 
-    def Empty(span: TextSpan):
+    def Empty(span: FileTextSpan):
         ...  # -> ParsedType
 
     def __eq__(self, other):
@@ -291,9 +294,9 @@ class FunctionLinkage(sumtype):
 
 
 class ParsedMatchPattern(sumtype):
-    def EnumVariant(variant_name: List[Tuple[str, TextSpan]],
+    def EnumVariant(variant_name: List[Tuple[str, FileTextSpan]],
                     variant_arguments: List[EnumVariantPatternArgument],
-                    arguments_span: TextSpan): ...  # -> ParsedMatchPattern
+                    arguments_span: FileTextSpan): ...  # -> ParsedMatchPattern
 
     def Expression(expr: Any): ...  # -> ParsedMatchPattern
 
@@ -317,66 +320,66 @@ class ParsedMatchBody(sumtype):
 
 
 class ParsedCapture(sumtype):
-    def ByValue(name: str, span: TextSpan): ...  # -> ParsedCapture
+    def ByValue(name: str, span: FileTextSpan): ...  # -> ParsedCapture
 
-    def ByReference(name: str, span: TextSpan): ...  # -> ParsedCapture
+    def ByReference(name: str, span: FileTextSpan): ...  # -> ParsedCapture
 
-    def ByMutableReference(name: str, span: TextSpan): ...  # -> ParsedCapture
+    def ByMutableReference(name: str, span: FileTextSpan): ...  # -> ParsedCapture
 
 
 class ParsedStatement(sumtype):
-    def Expression(expr: Any, span: TextSpan):
+    def Expression(expr: Any, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def Defer(statement: Any, span: TextSpan):
+    def Defer(statement: Any, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def UnsafeBlock(block: ParsedBlock, span: TextSpan):
+    def UnsafeBlock(block: ParsedBlock, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def DestructuringAssignment(vars_: List[ParsedVarDecl], var_decl: Any, span: TextSpan):
+    def DestructuringAssignment(vars_: List[ParsedVarDecl], var_decl: Any, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def VarDecl(var: ParsedVarDecl, init: Any, span: TextSpan):
+    def VarDecl(var: ParsedVarDecl, init: Any, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def If(condition: Any, then_block: ParsedBlock, else_statement: Any, span: TextSpan):
+    def If(condition: Any, then_block: ParsedBlock, else_statement: Any, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def Block(block: ParsedBlock, span: TextSpan):
+    def Block(block: ParsedBlock, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def Loop(block: ParsedBlock, span: TextSpan):
+    def Loop(block: ParsedBlock, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def While(condition: Any, block: ParsedBlock, span: TextSpan):
+    def While(condition: Any, block: ParsedBlock, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def For(iterator_name: str, name_span: TextSpan, range_: Any, block: ParsedBlock, span: TextSpan):
+    def For(iterator_name: str, name_span: FileTextSpan, range_: Any, block: ParsedBlock, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def Break(span: TextSpan):
+    def Break(span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def Continue(span: TextSpan):
+    def Continue(span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def Return(expr: Any, span: TextSpan):
+    def Return(expr: Any, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def Throw(expr: Any, span: TextSpan):
+    def Throw(expr: Any, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def Yield(expr: Any, span: TextSpan):
+    def Yield(expr: Any, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def InlineCpp(block: ParsedBlock, span: TextSpan):
+    def InlineCpp(block: ParsedBlock, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def Guard(expr: Any, else_block: ParsedBlock, remaining_code: ParsedBlock, span: TextSpan):
+    def Guard(expr: Any, else_block: ParsedBlock, remaining_code: ParsedBlock, span: FileTextSpan):
         ...  # -> ParsedStatement
 
-    def Invalid(span: TextSpan):
+    def Invalid(span: FileTextSpan):
         ...  # -> ParsedStatement
 
     def __eq__(self, other: ParsedStatement):
@@ -420,102 +423,102 @@ class Visibility(sumtype):
 
     def Private(): ...  # -> Visibility
 
-    def Restricted(whitelist: List[ParsedType], span: TextSpan): ...  # -> Visibility
+    def Restricted(whitelist: List[ParsedType], span: FileTextSpan): ...  # -> Visibility
 
 
 class ParsedExpression(sumtype):
-    def Boolean(val: Any, span: TextSpan):
+    def Boolean(val: Any, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def NumericConstant(val: NumericConstant, span: TextSpan):
+    def NumericConstant(val: NumericConstant, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def QuotedString(val: str, span: TextSpan):
+    def QuotedString(val: str, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def SingleQuotedString(val: str, span: TextSpan):
+    def SingleQuotedString(val: str, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def SingleQuotedByteString(quote: str, span: TextSpan):
+    def SingleQuotedByteString(quote: str, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def Call(call: ParsedCall, span: TextSpan):
+    def Call(call: ParsedCall, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def MethodCall(expr: Any, call: ParsedCall, is_optional: bool, span: TextSpan):
+    def MethodCall(expr: Any, call: ParsedCall, is_optional: bool, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def IndexedTuple(expr: Any, index: int, is_optional: bool, span: TextSpan):
+    def IndexedTuple(expr: Any, index: int, is_optional: bool, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def IndexedStruct(expr: Any, field: str, is_optional: bool, span: TextSpan):
+    def IndexedStruct(expr: Any, field: str, is_optional: bool, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def Var(name: str, span: TextSpan):
+    def Var(name: str, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def IndexedExpression(expr: Any, index: Any, span: TextSpan):
+    def IndexedExpression(expr: Any, index: Any, span: FileTextSpan):
         ...  # -> ParsedExpression
 
     def IndexedRangeExpression(expr: Any, from_: Any,
-                               to: Any, span: TextSpan):
+                               to: Any, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def UnaryOp(expr: Any, op: UnaryOperator, span: TextSpan):
+    def UnaryOp(expr: Any, op: UnaryOperator, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def BinaryOp(lhs: Any, op: BinaryOperator, rhs: Any, span: TextSpan):
+    def BinaryOp(lhs: Any, op: BinaryOperator, rhs: Any, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def Operator(op: BinaryOperator, span: TextSpan):
+    def Operator(op: BinaryOperator, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def OptionalSome(expr: Any, span: TextSpan):
+    def OptionalSome(expr: Any, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def OptionalNone(span: TextSpan):
+    def OptionalNone(span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def Array(values_: List[Any], fill_size: Any, span: TextSpan):
+    def Array(values_: List[Any], fill_size: Any, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def Dictionary(values_: List[Any], span: TextSpan):
+    def Dictionary(values_: List[Any], span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def Set(values_: List[Any], span: TextSpan):
+    def Set(values_: List[Any], span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def Tuple(values_: List[Any], span: TextSpan):
+    def Tuple(values_: List[Any], span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def Range(from_: Any, to: Any, span: TextSpan):
+    def Range(from_: Any, to: Any, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def ForcedUnwrap(expr: Any, span: TextSpan):
+    def ForcedUnwrap(expr: Any, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def Match(expr: Any, cases: List[ParsedMatchCase], span: TextSpan):
+    def Match(expr: Any, cases: List[ParsedMatchCase], span: FileTextSpan):
         ...  # -> ParsedExpression
 
     def EnumVariantArg(expr: Any, arg: EnumVariantPatternArgument,
-                       enum_variant: ParsedType, span: TextSpan):
+                       enum_variant: ParsedType, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def NamespacedVar(name: str, namespace: List[str], span: TextSpan):
+    def NamespacedVar(name: str, namespace: List[str], span: FileTextSpan):
         ...  # -> ParsedExpression
 
     def Function(captures: List[ParsedCapture], params: List[ParsedParameter], can_throw: bool,
-                 return_type: ParsedType, block: ParsedBlock, span: TextSpan):
+                 return_type: ParsedType, block: ParsedBlock, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def Try(expr: Any, catch_block: ParsedBlock, catch_name: str, span: TextSpan):
+    def Try(expr: Any, catch_block: ParsedBlock, catch_name: str, span: FileTextSpan):
         ...  # -> ParsedExpression
 
     def TryBlock(stmt: Any, error_name: str,
-                 error_span: TextSpan, catch_block: ParsedBlock, span: TextSpan):
+                 error_span: FileTextSpan, catch_block: ParsedBlock, span: FileTextSpan):
         ...  # -> ParsedExpression
 
-    def Invalid(span: TextSpan):
+    def Invalid(span: FileTextSpan):
         ...  # -> ParsedExpression
 
     def precedence(self) -> int:
@@ -571,25 +574,31 @@ class Parser:
             color = self.debug_info.get_color(line)
             print(f'\x1b[38;5;{color}m{caller}, {line}\x1b[38;5;250m: self.index += {steps}: {self.index}')
 
-    def __init__(self, index: int, compiler: Compiler, lexer: Lexer):
-        self.index = index
+    def __init__(self, compiler: Compiler):
+        self.index = 0
         self.compiler = compiler
-        self.lexer = lexer
+        self.lexer = Lexer(
+            compiler.current_file_contents,
+            lambda message, span: self.error(
+                message,
+                FileTextSpan(compiler.current_file_id(), span)
+            )
+        )
         self.buffer = list()
         self.is_eof = False
-        self.previous_token = Token.EOF(self.span(0, 0))
+        self.previous_token = Token.EOF(TextSpan(0, 0))
 
     def span(self, start, end):
-        return TextSpan(self.compiler.current_file, start, end)
+        return FileTextSpan(self.compiler.current_file, TextSpan(start, end))
 
     def empty_span(self):
         return self.span(0, 0)
 
-    def error(self, message: str, span: TextSpan):
+    def error(self, message: str, span: FileTextSpan):
         if not self.compiler.ignore_parser_errors:
             self.compiler.errors.append(CompilerError.Message(message, span))
 
-    def error_with_hint(self, message: str, span: TextSpan, hint: str, hint_span: TextSpan):
+    def error_with_hint(self, message: str, span: FileTextSpan, hint: str, hint_span: FileTextSpan):
         if not self.compiler.ignore_parser_errors:
             self.compiler.errors.append(CompilerError.MessageWithHint(message, span, hint, hint_span))
 
@@ -601,14 +610,14 @@ class Parser:
 
     def peek(self, steps: int = 1)->Token:
         if self.eof():
-            return Token.EOF(self.span(0, 0))
+            return Token.EOF(TextSpan())
         while not self.is_eof and len(self.buffer) <= steps:
             try:
                 self.buffer.append(next(self.lexer))
             except StopIteration:
                 self.is_eof = True
         if steps >= len(self.buffer):
-            return Token.EOF(self.span(0, 0))
+            return Token.EOF(TextSpan())
         return self.buffer[steps]
 
     def previous(self):
@@ -621,7 +630,13 @@ class Parser:
         while self.current().variant == 'EOL':
             self.index_inc()
 
+    def trace(self):
+        #traceback.print_stack()
+        #print("=>", self.current())
+        pass
+
     def parse_expression(self, allow_assignments: bool, allow_newlines: bool):
+        self.trace()
         expr_stack = []
         last_precedence = 1000000
 
@@ -678,8 +693,15 @@ class Parser:
 
         return expr_stack[0]
 
+    def current_token_span(self):
+        return FileTextSpan(self.compiler.current_file_id(), self.current().span)
+
+    def previous_token_span(self):
+        return FileTextSpan(self.compiler.current_file_id(), self.previous().span)
+
     def parse_operator(self, allow_assignments: bool):
-        span = self.current().span
+        self.trace()
+        span = self.current_token_span()
         op: BinaryOperator | None = None
         token_type = self.current().variant
         if token_type == 'QUESTION_MARK_QUESTION_MARK':
@@ -760,17 +782,19 @@ class Parser:
         return ParsedExpression.Operator(op, span)
 
     def parse_operand(self):
+        self.trace()
         self.skip_newlines()
-        start = self.current().span
+        start = self.current_token_span()
         self.skip_newlines()
         expr = self.parse_operand_base()
         return self.parse_operand_postfix_operator(start, expr)
 
     def parse_operand_base(self) -> ParsedExpression:
+        self.trace()
         if self.current().variant == 'DOT':
-            return ParsedExpression.Var('this', self.current().span)
+            return ParsedExpression.Var('this', self.current_token_span())
         elif self.current().variant == 'TRY':
-            span = self.current().span
+            span = self.current_token_span()
             self.index_inc()
             if self.current().variant == 'LCURLY':
                 return self.parse_try_block()
@@ -787,51 +811,51 @@ class Parser:
                 return ParsedExpression.Try(expression, catch_block, catch_name, span)
         elif self.current().variant == 'QUOTED_STRING':
             quote = self.current().string
-            span = self.current().span
+            span = self.current_token_span()
             self.index_inc()
             return ParsedExpression.QuotedString(quote, span)
         elif self.current().variant == 'SINGLE_QUOTED_STRING':
             quote = self.current().string
-            span = self.current().span
+            span = self.current_token_span()
             self.index_inc()
             return ParsedExpression.SingleQuotedString(quote, span)
         elif self.current().variant == 'SINGLE_QUOTED_BYTE_STRING':
             quote = self.current().quote
-            span = self.current().span
+            span = self.current_token_span()
             self.index_inc()
             return ParsedExpression.SingleQuotedByteString(quote, span)
         elif self.current().variant == 'NUMBER':
             val = self.current().value
-            span = self.current().span
+            span = self.current_token_span()
             self.index_inc()
             return ParsedExpression.NumericConstant(val, span)
         elif self.current().variant == 'TRUE':
-            span = self.current().span
+            span = self.current_token_span()
             self.index_inc()
             return ParsedExpression.Boolean(True, span)
         elif self.current().variant == 'FALSE':
-            span = self.current().span
+            span = self.current_token_span()
             self.index_inc()
             return ParsedExpression.Boolean(False, span)
         elif self.current().variant == 'THIS':
-            span = self.current().span
+            span = self.current_token_span()
             self.index_inc()
             return ParsedExpression.Var('this', span)
         elif self.current().variant == 'NOT':
-            start = self.current().span
+            start = self.current_token_span()
             self.index_inc()
             expr = self.parse_operand()
             span = self.merge_spans(start, expr.span)
             return ParsedExpression.UnaryOp(expr, UnaryOperator.LogicalNot(), span)
         elif self.current().variant == 'TILDE':
-            start = self.current().span
+            start = self.current_token_span()
             self.index_inc()
             expr = self.parse_operand()
             span = self.merge_spans(start, expr.span)
             return ParsedExpression.UnaryOp(expr, UnaryOperator.BitwiseNot(), span)
         elif self.current().variant == 'IDENTIFIER':
             name = self.current().name
-            span = self.current().span
+            span = self.current_token_span()
             if self.peek().variant == 'LPAREN':
                 if name == 'Some':
                     self.index_inc()
@@ -854,7 +878,7 @@ class Parser:
                 return ParsedExpression.OptionalNone(span)
             return ParsedExpression.Var(name, span)
         elif self.current().variant == 'LPAREN':
-            start_span = self.current().span
+            start_span = self.current_token_span()
             self.index_inc()
             expr = self.parse_expression(allow_assignments=False, allow_newlines=False)
             self.skip_newlines()
@@ -878,11 +902,11 @@ class Parser:
                             end_span = expr.span
                             tuple_exprs.append(expr)
                     if self.eof():
-                        self.error('Expected `)`', self.current().span)
+                        self.error('Expected `)`', self.current_token_span())
 
                     expr = ParsedExpression.Tuple(tuple_exprs, self.merge_spans(start_span, end_span))
                 case _:
-                    self.error('Expected `)`', self.current().span)
+                    self.error('Expected `)`', self.current_token_span())
             return expr
         elif self.current().variant in ['PLUSPLUS', 'MINUSMINUS', 'MINUS']:
             op: UnaryOperator | None = None
@@ -894,8 +918,8 @@ class Parser:
                 op = UnaryOperator.Negate()
             else:
                 self.error('Something went wrong parsing unary operators PreIncrement, PreDecrement and Negate',
-                           self.current().span)
-            start = self.current().span
+                           self.current_token_span())
+            start = self.current_token_span()
             self.index_inc()
             expr = self.parse_operand()
             span = self.merge_spans(start, expr.span)
@@ -913,16 +937,17 @@ class Parser:
         elif self.current().variant == 'FUNCTION':
             return self.parse_lambda()
         else:
-            span = self.current().span
+            span = self.current_token_span()
             self.index_inc()
             self.error('Unsupported expression', span)
             return ParsedExpression.Invalid(span)
 
     def parse_set_literal(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         if self.current().variant != 'LCURLY':
-            self.error('Expected `{`', self.current().span)
-            return ParsedExpression.Invalid(self.current().span)
+            self.error('Expected `{`', self.current_token_span())
+            return ParsedExpression.Invalid(self.current_token_span())
         self.index_inc()
 
         output: List[ParsedExpression] = []
@@ -938,23 +963,25 @@ class Parser:
                     break
                 output.append(expr)
         if self.previous() != 'RCURLY':
-            self.error('Expected `}` to close the set', self.previous().span)
-        return ParsedExpression.Set(output, self.merge_spans(start, self.previous().span))
+            self.error('Expected `}` to close the set', self.previous_token_span())
+        return ParsedExpression.Set(output, self.merge_spans(start, self.previous_token_span()))
 
     def parse_match_expression(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         self.index_inc()
         expr = self.parse_expression(allow_assignments=False, allow_newlines=True)
         cases = self.parse_match_cases()
-        return ParsedExpression.Match(expr, cases, self.merge_spans(start, self.previous().span))
+        return ParsedExpression.Match(expr, cases, self.merge_spans(start, self.previous_token_span()))
 
     def parse_match_cases(self):
+        self.trace()
         cases: List[ParsedMatchCase] = []
 
         self.skip_newlines()
 
         if self.current().variant != 'LCURLY':
-            self.error('Expected `{`', self.current().span)
+            self.error('Expected `{`', self.current_token_span())
             return cases
 
         self.index_inc()
@@ -966,11 +993,11 @@ class Parser:
 
             self.skip_newlines()
 
-            marker_span = self.current().span
+            marker_span = self.current_token_span()
             if self.current().variant == 'FAT_ARROW':
                 self.index_inc()
             else:
-                self.error('Expected `=>`', self.current().span)
+                self.error('Expected `=>`', self.current_token_span())
             self.skip_newlines()
 
             body: ParsedMatchBody
@@ -990,11 +1017,12 @@ class Parser:
             self.skip_newlines()
         self.skip_newlines()
         if self.current().variant == 'RCURLY':
-            self.error('Expected `}`', self.current().span)
+            self.error('Expected `}`', self.current_token_span())
         self.index_inc()
         return cases
 
     def parse_match_patterns(self) -> List[ParsedMatchPattern]:
+        self.trace()
         patterns: List[ParsedMatchPattern] = []
         self.skip_newlines()
         while not self.eof():
@@ -1008,6 +1036,7 @@ class Parser:
         return patterns
 
     def parse_match_pattern(self) -> ParsedMatchPattern:
+        self.trace()
         if self.current().variant in ['TRUE', 'FALSE', 'NUMBER', 'QUOTED_STRING',
                                       'SINGLE_QUOTED_STRING', 'SINGLE_QUOTED_BYTE_STRING', 'LPAREN']:
             return ParsedMatchPattern.Expression(self.parse_operand())
@@ -1016,31 +1045,32 @@ class Parser:
             return ParsedMatchPattern.CatchAll()
         elif self.current().variant == 'IDENTIFIER':
             pattern_start_index = self.index
-            variant_name: List[Tuple[str, TextSpan]] = []
+            variant_name: List[Tuple[str, FileTextSpan]] = []
             while not self.eof():
                 if self.current().variant == 'IDENTIFIER':
-                    variant_name.append((self.current().name, self.current().span))
+                    variant_name.append((self.current().name, self.current_token_span()))
                     self.index_inc()
                 elif self.current().variant == 'COLON_COLON':
                     self.index_inc()
                 else:
                     break
             variant_arguments = self.parse_variant_arguments()
-            arguments_start = self.current().span
-            arguments_end = self.previous().span
+            arguments_start = self.current_token_span()
+            arguments_end = self.previous_token_span()
             arguments_span = self.merge_spans(arguments_start, arguments_end)
 
             return ParsedMatchPattern.EnumVariant(variant_name, variant_arguments, arguments_span)
         else:
-            self.error('Expected pattern or `else`', self.current().span)
+            self.error('Expected pattern or `else`', self.current_token_span())
             return ParsedMatchPattern.CatchAll()
 
     def parse_array_or_dictionary_literal(self):
+        self.trace()
         is_dictionary: bool = False
-        start = self.current().span
+        start = self.current_token_span()
 
         if self.current().variant == 'LSQUARE':
-            self.error('Expected `[`', self.current().span)
+            self.error('Expected `[`', self.current_token_span())
         self.index_inc()
 
         fill_size_expr: ParsedExpression | None = None
@@ -1058,7 +1088,7 @@ class Parser:
                     self.index_inc()
                     fill_size_expr = self.parse_expression(allow_assignments=False, allow_newlines=False)
                 else:
-                    self.error("Can't fill and Array with more than one expression", self.current().span)
+                    self.error("Can't fill and Array with more than one expression", self.current_token_span())
                     self.index_inc()
             elif self.current().variant == 'COLON':
                 self.index_inc()
@@ -1068,36 +1098,37 @@ class Parser:
                         is_dictionary = True
                         break
                     else:
-                        self.error('Expected `[`', self.current().span)
+                        self.error('Expected `[`', self.current_token_span())
                 else:
-                    self.error('Missing key in dictionary literal', self.current().span)
+                    self.error('Missing key in dictionary literal', self.current_token_span())
             else:
                 expr = self.parse_expression(allow_assignments=False, allow_newlines=False)
                 if expr.variant == 'Invalid':
                     break
                 if self.current().variant == 'COLON':
                     if len(output) > 0:
-                        self.error('Mixing dictionary and array values is not allowed', self.current().span)
+                        self.error('Mixing dictionary and array values is not allowed', self.current_token_span())
                     is_dictionary = True
                     self.index_inc()
                     if self.eof():
-                        self.error('Key missing value in dictionary', self.current().span)
-                        return ParsedExpression.Invalid(self.current().span)
+                        self.error('Key missing value in dictionary', self.current_token_span())
+                        return ParsedExpression.Invalid(self.current_token_span())
                     value = self.parse_expression(allow_assignments=False, allow_newlines=False)
                     dict_output.append((expr, value))
                 elif not is_dictionary:
                     output.append(expr)
         if self.previous() != 'RSQUARE':
-            self.error('Expected `]` to close the array', self.previous().span)
+            self.error('Expected `]` to close the array', self.previous_token_span())
         if is_dictionary:
             return ParsedExpression.Dictionary(
                     values_=dict_output,
-                    span=self.merge_spans(start, self.previous().span))
+                    span=self.merge_spans(start, self.previous_token_span()))
         else:
             return ParsedExpression.Array(values_=output, fill_size=fill_size_expr,
-                                          span=self.merge_spans(start, self.previous().span))
+                                          span=self.merge_spans(start, self.previous_token_span()))
 
     def parse_captures(self):
+        self.trace()
         captures: List[ParsedCapture] = []
         if self.current().variant != 'LSQUARE':
             return []
@@ -1111,29 +1142,30 @@ class Parser:
                 if self.current().variant == 'MUT':
                     self.index_inc()
                     if self.current().variant == 'IDENTIFIER':
-                        captures.append(ParsedCapture.ByMutableReference(self.current().name, self.current().span))
+                        captures.append(ParsedCapture.ByMutableReference(self.current().name, self.current_token_span()))
                         self.index_inc()
                     else:
-                        self.error(f'Expected identifier, got {self.current()}', self.current().span)
+                        self.error(f'Expected identifier, got {self.current()}', self.current_token_span())
                         self.index_inc()
                 elif self.current().variant == 'IDENTIFIER':
-                    captures.append(ParsedCapture.ByReference(self.current().name, self.current().span))
+                    captures.append(ParsedCapture.ByReference(self.current().name, self.current_token_span()))
                     self.index_inc()
                 else:
-                    self.error(f'Expected identifier or `mut` keyword, got {self.current()}', self.current().span)
+                    self.error(f'Expected identifier or `mut` keyword, got {self.current()}', self.current_token_span())
                     self.index_inc()
             elif self.current().variant == 'IDENTIFIER':
-                captures.append(ParsedCapture.ByValue(self.current().name, self.current().span))
+                captures.append(ParsedCapture.ByValue(self.current().name, self.current_token_span()))
                 self.index_inc()
             elif self.current().variant in ['COMMA', 'EOL']:
                 self.index_inc()
             else:
-                self.error(f'Unexpected token `{self.current().variant}` in captures list', self.current().span)
+                self.error(f'Unexpected token `{self.current().variant}` in captures list', self.current_token_span())
                 self.index_inc()
         return captures
 
     def parse_ampersand(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         self.index_inc()
         if self.current().variant == 'RAW':
             self.index_inc()
@@ -1147,13 +1179,15 @@ class Parser:
         return ParsedExpression.UnaryOp(expr, UnaryOperator.Reference(), self.merge_spans(start, expr.span))
 
     def parse_asterisk(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         self.index_inc()
         expr = self.parse_operand()
-        return ParsedExpression.UnaryOp(expr, UnaryOperator.Dereference(), self.merge_spans(start, self.current().span))
+        return ParsedExpression.UnaryOp(expr, UnaryOperator.Dereference(), self.merge_spans(start, self.current_token_span()))
 
     def parse_lambda(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         self.index_inc()
         captures = self.parse_captures()
         params = self.parse_function_parameters()
@@ -1171,9 +1205,10 @@ class Parser:
         else:
             block = self.parse_block()
         return ParsedExpression.Function(captures, params, can_throw,
-                                         return_type, block, self.merge_spans(start, self.current().span))
+                                         return_type, block, self.merge_spans(start, self.current_token_span()))
 
-    def parse_operand_postfix_operator(self, start: TextSpan, expr: ParsedExpression) -> ParsedExpression:
+    def parse_operand_postfix_operator(self, start: FileTextSpan, expr: ParsedExpression) -> ParsedExpression:
+        self.trace()
         result = expr
         while True:
             if self.current().variant == 'DOTDOT':
@@ -1182,18 +1217,18 @@ class Parser:
                 result = ParsedExpression.Range(result, to, self.merge_spans(start, to.span))
             elif self.current().variant == 'EXCLAMATION_POINT':
                 self.index_inc()
-                result = ParsedExpression.ForcedUnwrap(result, self.merge_spans(start, self.previous().span))
+                result = ParsedExpression.ForcedUnwrap(result, self.merge_spans(start, self.previous_token_span()))
             elif self.current().variant == 'PLUS_PLUS':
                 self.index_inc()
                 result = ParsedExpression.UnaryOp(result, UnaryOperator.PostIncrement(),
-                                                  self.merge_spans(start, self.previous().span))
+                                                  self.merge_spans(start, self.previous_token_span()))
             elif self.current().variant == 'MINUS_MINUS':
                 self.index_inc()
                 result = ParsedExpression.UnaryOp(result, UnaryOperator.PostDecrement(),
-                                                  self.merge_spans(start, self.previous().span))
+                                                  self.merge_spans(start, self.previous_token_span()))
             elif self.current().variant == 'AS':
                 self.index_inc()
-                cast_span = self.merge_spans(self.previous().span, self.current().span)
+                cast_span = self.merge_spans(self.previous_token_span(), self.current_token_span())
                 cast = TypeCast.Fallible(ParsedType.Empty(self.empty_span()))
                 if self.current().variant == 'EXCLAMATION_POINT':
                     self.index_inc()
@@ -1203,12 +1238,12 @@ class Parser:
                     cast = TypeCast.Fallible(self.parse_typename())
                 else:
                     self.error('Invalid cast syntax', cast_span)
-                span = self.merge_spans(start, self.merge_spans(cast_span, self.current().span))
+                span = self.merge_spans(start, self.merge_spans(cast_span, self.current_token_span()))
                 result = ParsedExpression.UnaryOp(result, UnaryOperator.TypeCast(cast), span)
             elif self.current().variant == 'IS':
                 self.index_inc()
                 parsed_type = self.parse_typename()
-                span = self.merge_spans(start, self.current().span)
+                span = self.merge_spans(start, self.current_token_span())
                 bindings: List[EnumVariantPatternArgument] = []
                 unary_operator_is = None
                 if self.current().variant == 'LPAREN' and parsed_type.variant in ['NamespacedName', 'Name']:
@@ -1227,12 +1262,12 @@ class Parser:
                 if is_optional:
                     self.index_inc()
                     if self.current().variant != 'DOT':
-                        self.error('Expected `.` after `?` for optional chaining access', self.current().span)
+                        self.error('Expected `.` after `?` for optional chaining access', self.current_token_span())
                 if self.current().variant == 'NUMBER':
-                    number = self.current().number
+                    number = int(self.current().value.value)
                     self.index_inc()
                     result = ParsedExpression.IndexedTuple(
-                            result, number, is_optional, self.merge_spans(start, self.previous().span))
+                            result, number, is_optional, self.merge_spans(start, self.previous_token_span()))
                 elif self.current().variant == 'IDENTIFIER':
                     # struct field access or method call
                     name = self.current().name
@@ -1242,10 +1277,10 @@ class Parser:
                         self.index -= 1
                         call = self.parse_call()
                         result = ParsedExpression.MethodCall(result, call, is_optional,
-                                                             self.merge_spans(start, self.previous().span))
+                                                             self.merge_spans(start, self.previous_token_span()))
                     else:
                         result = ParsedExpression.IndexedStruct(result, name, is_optional,
-                                                                self.merge_spans(start, self.current().span))
+                                                                self.merge_spans(start, self.current_token_span()))
             elif self.current().variant == 'LSQUARE':
                 # indexing operation
                 self.index_inc()
@@ -1253,19 +1288,20 @@ class Parser:
                 if self.current().variant == 'RSQUARE':
                     self.index_inc()
                 else:
-                    self.error('Expected `]`', self.current().span)
+                    self.error('Expected `]`', self.current_token_span())
                 if index_expr.variant == 'Range':
                     from_ = index_expr.from_
                     to = index_expr.to
-                    result = ParsedExpression.IndexedRangeExpression(result, from_, to, self.current().span)
+                    result = ParsedExpression.IndexedRangeExpression(result, from_, to, self.current_token_span())
                 else:
                     result = ParsedExpression.IndexedExpression(result, index_expr,
-                                                                self.merge_spans(start, self.current().span))
+                                                                self.merge_spans(start, self.current_token_span()))
             else:
                 break
         return result
 
     def parse_variant_arguments(self) -> List[EnumVariantPatternArgument]:
+        self.trace()
         variant_arguments: List[EnumVariantPatternArgument] = []
         has_parens: bool = False  # Note: this is weird, and maybe unnecessary
         if self.current().variant == 'LPAREN':
@@ -1274,34 +1310,36 @@ class Parser:
             while not self.eof():
                 if self.current().variant == 'IDENTIFIER':
                     arg_name = self.current().name
-                    if self.peek().variant == 'COlON':
+                    if self.peek().variant == 'COLON':
                         self.index_inc(2)
                         if self.current().variant == 'IDENTIFIER':
                             arg_binding = self.current().name
-                            span = self.current().span
+                            span = self.current_token_span()
                             self.index_inc()
                             variant_arguments.append(EnumVariantPatternArgument(
                                     name=arg_name,
                                     binding=arg_binding,
                                     span=span))
                         else:
-                            self.error('Expected binding after `:`', self.current().span)
+                            self.error('Expected binding after `:`', self.current_token_span())
                     else:
                         variant_arguments.append(EnumVariantPatternArgument(
                                 name=None,
                                 binding=arg_name,
-                                span=self.current().span))
+                                span=self.current_token_span()))
+                        self.index_inc()
                 elif self.current().variant == 'COMMA':
                     self.index_inc()
                 elif self.current().variant == 'RPAREN':
                     self.index_inc()
                     break
                 else:
-                    self.error('Expected pattern argument name', self.current().span)
+                    self.error('Expected pattern argument name', self.current_token_span())
                     break
         return variant_arguments
 
-    def parse_postfix_colon_colon(self, start: TextSpan, expr: ParsedExpression) -> ParsedExpression:
+    def parse_postfix_colon_colon(self, start: FileTextSpan, expr: ParsedExpression) -> ParsedExpression:
+        self.trace()
         namespace_: [str] = []
         current_name: str = ''
         self.index_inc()
@@ -1310,10 +1348,10 @@ class Parser:
         else:
             self.error('Expected namespace', expr.span)
         if self.eof():
-            self.error('Incomplete static method call', self.current().span)
+            self.error('Incomplete static method call', self.current_token_span())
         while not self.eof():
             if self.current().variant != 'IDENTIFIER':
-                self.error('Unsupported static method call', self.current().span)
+                self.error('Unsupported static method call', self.current_token_span())
                 return expr
             current_name = self.current().name
             self.index_inc()
@@ -1321,7 +1359,7 @@ class Parser:
                 self.index -= 1
                 call = self.parse_call()
                 call.namespace = namespace_
-                return ParsedExpression.Call(call, self.merge_spans(expr.span, self.current().span))
+                return ParsedExpression.Call(call, self.merge_spans(expr.span, self.current_token_span()))
             if self.current().variant == 'COLON_COLON':
                 if self.previous().variant == 'IDENTIFIER':
                     namespace_.append(self.previous().name)
@@ -1334,13 +1372,14 @@ class Parser:
                 maybe_call = self.parse_call()
                 if maybe_call is not None:
                     maybe_call.namespace = namespace_
-                    return ParsedExpression.Call(maybe_call, self.merge_spans(expr.span, self.current().span))
-                return ParsedExpression.Invalid(self.current().span)
+                    return ParsedExpression.Call(maybe_call, self.merge_spans(expr.span, self.current_token_span()))
+                return ParsedExpression.Invalid(self.current_token_span())
             return ParsedExpression.NamespacedVar(name=current_name,
                                                   namespace=namespace_,
-                                                  span=self.merge_spans(start, self.current().span))
+                                                  span=self.merge_spans(start, self.current_token_span()))
 
     def parse_function(self, linkage: FunctionLinkage, visibility: Visibility, is_comptime: bool):
+        self.trace()
         parsed_function = ParsedFunction(
                 name='',
                 name_span=self.empty_span(),
@@ -1359,21 +1398,21 @@ class Parser:
         self.index_inc()
 
         if self.eof():
-            self.error('incomplete function definition', self.current().span)
+            self.error('incomplete function definition', self.current_token_span())
             return parsed_function
 
         if self.current().variant != 'IDENTIFIER':
             return parsed_function
 
         parsed_function.name = self.current().name
-        parsed_function.name_span = self.current().span
+        parsed_function.name_span = self.current_token_span()
 
         self.index_inc()
 
         parsed_function.generic_parameters = self.parse_generic_parameters()
 
         if self.eof():
-            self.error('incomplete function', self.current().span)
+            self.error('incomplete function', self.current_token_span())
 
         parsed_function.params = self.parse_function_parameters()
 
@@ -1384,9 +1423,9 @@ class Parser:
         parsed_function.can_throw = can_throw
         if self.current().variant == 'ARROW':
             self.index_inc()
-            start = self.current().span
+            start = self.current_token_span()
             parsed_function.return_type = self.parse_typename()
-            parsed_function.return_type_span = self.merge_spans(start, self.previous().span)
+            parsed_function.return_type_span = self.merge_spans(start, self.previous_token_span())
 
         if linkage.variant == 'External':
             return parsed_function
@@ -1399,17 +1438,19 @@ class Parser:
         return parsed_function
 
     def parse_fat_arrow(self):
+        self.trace()
         self.index_inc()
-        start = self.current().span
+        start = self.current_token_span()
         expr = self.parse_expression(allow_assignments=False, allow_newlines=False)
-        return_statement = ParsedStatement.Return(expr, self.merge_spans(start, self.current().span))
+        return_statement = ParsedStatement.Return(expr, self.merge_spans(start, self.current_token_span()))
         return ParsedBlock(stmts=[return_statement])
 
     def parse_function_parameters(self):
+        self.trace()
         if self.current().variant == 'LPAREN':
             self.index_inc()
         else:
-            self.error('Expected `(`', self.current().span)
+            self.error('Expected `(`', self.current_token_span())
 
         self.skip_newlines()
 
@@ -1426,7 +1467,7 @@ class Parser:
                 break
             elif self.current().variant in ['COMMA', 'EOL']:
                 if not parameter_complete and not error:
-                    self.error('Expected parameter', self.current().span)
+                    self.error('Expected parameter', self.current_token_span())
                     error = True
                 self.index_inc()
                 current_param_requires_label = True
@@ -1435,23 +1476,23 @@ class Parser:
             elif self.current().variant == 'ANON':
                 if parameter_complete and not error:
                     self.error('`anon` must appear at the start of parameter declaration, not the end',
-                               self.current().span)
+                               self.current_token_span())
                     error = True
                 if current_param_is_mutable and not error:
-                    self.error('`anon` must appear before `mut`', self.current().span)
+                    self.error('`anon` must appear before `mut`', self.current_token_span())
                     error = True
                 if not current_param_requires_label and not error:
-                    self.error('`anon` cannot appear multiple times in one parameter declaration', self.current().span)
+                    self.error('`anon` cannot appear multiple times in one parameter declaration', self.current_token_span())
                     error = True
                 self.index_inc()
                 current_param_requires_label = False
             elif self.current().variant == 'MUT':
                 if parameter_complete and not error:
                     self.error('`mut` must appear at the start of parameter declaration, not the end',
-                               self.current().span)
+                               self.current_token_span())
                     error = True
                 if current_param_is_mutable and not error:
-                    self.error('`mut` cannot appear multiple times in one parameter delcaration', self.current().span)
+                    self.error('`mut` cannot appear multiple times in one parameter delcaration', self.current_token_span())
                     error = True
                 self.index_inc()
                 current_param_is_mutable = True
@@ -1462,10 +1503,10 @@ class Parser:
                                 name='this',
                                 parsed_type=ParsedType.Empty(self.empty_span()),
                                 is_mutable=current_param_is_mutable,
-                                span=self.current().span
+                                span=self.current_token_span()
                                 ),
                         default_argument=None,
-                        span=self.current().span
+                        span=self.current_token_span()
                         ))
                 self.index_inc()
                 parameter_complete = True
@@ -1481,20 +1522,21 @@ class Parser:
                                 name=var_decl.name,
                                 parsed_type=var_decl.parsed_type,
                                 is_mutable=var_decl.is_mutable,
-                                span=self.previous().span
+                                span=self.previous_token_span()
                                 ),
                         default_argument=default_argument,
-                        span=self.previous().span
+                        span=self.previous_token_span()
                         ))
                 parameter_complete = True
             else:
                 if not error:
-                    self.error('Expected parameter', self.current().span)
+                    self.error('Expected parameter', self.current_token_span())
                     error = True
                 self.index_inc()
         return params
 
     def parse_type_shorthand(self):
+        self.trace()
         if self.current().variant == 'LSQUARE':
             return self.parse_type_shorthand_array_or_dictionary()
         elif self.current().variant == 'LCURLY':
@@ -1505,42 +1547,45 @@ class Parser:
             return ParsedType.Empty(self.empty_span())
 
     def parse_type_shorthand_array_or_dictionary(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         self.index_inc()
         inner = self.parse_typename()
         if self.current().variant == 'RSQUARE':
             self.index_inc()
-            return ParsedType.Array(inner, self.merge_spans(start, self.previous().span))
+            return ParsedType.Array(inner, self.merge_spans(start, self.previous_token_span()))
         if self.current().variant == 'COLON':
             self.index_inc()
             value = self.parse_typename()
             if self.current().variant == 'RSQUARE':
                 self.index_inc()
             else:
-                self.error('Expected `]`', self.current().span)
-            return ParsedType.Dictionary(inner, value, self.merge_spans(start, self.current().span))
-        self.error('Expected shorthand type', self.current().span)
+                self.error('Expected `]`', self.current_token_span())
+            return ParsedType.Dictionary(inner, value, self.merge_spans(start, self.current_token_span()))
+        self.error('Expected shorthand type', self.current_token_span())
         return ParsedType.Empty(self.empty_span())
 
     def parse_type_shorthand_set(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         if self.current().variant == 'LCURLY':
             self.index_inc()
         inner = self.parse_typename()
         if self.current().variant == 'RCURLY':
             self.index_inc()
-            return ParsedType.Set(inner, self.merge_spans(start, self.current().span))
-        self.error('Expected `}`', self.current().span)
+            return ParsedType.Set(inner, self.merge_spans(start, self.current_token_span()))
+        self.error('Expected `}`', self.current_token_span())
         return ParsedType.Empty(self.empty_span())
 
     def parse_type_shorthand_tuple(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         self.index_inc()
         types: List[ParsedType] = []
         while not self.eof():
             if self.current().variant == 'RPAREN':
                 self.index_inc()
-                return ParsedType.Tuple(types, self.merge_spans(start, self.previous().span))
+                return ParsedType.Tuple(types, self.merge_spans(start, self.previous_token_span()))
             if self.current().variant == 'COMMA':
                 self.index_inc()
             index_before = self.index
@@ -1549,11 +1594,12 @@ class Parser:
             if index_before == index_after:
                 break
             types.append(type_)
-        self.error('Expected `(`', self.current().span)
+        self.error('Expected `(`', self.current_token_span())
         return ParsedType.Empty(self.empty_span())
 
     def parse_block(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         block = ParsedBlock([])
 
         if self.eof():
@@ -1565,7 +1611,7 @@ class Parser:
         if self.current().variant == 'LCURLY':
             self.index_inc()
         else:
-            self.error('Expected `(`', self.current().span)
+            self.error('Expected `(`', self.current_token_span())
 
         while not self.eof():
             if self.current().variant == 'RCURLY':
@@ -1575,11 +1621,11 @@ class Parser:
                 self.index_inc()
             else:
                 block.stmts.append(self.parse_statement(inside_block=True))
-        self.error('Expected complete block', self.current().span)
+        self.error('Expected complete block', self.current_token_span())
         return block
 
     def parse_variable_declaration(self, is_mutable: bool):
-        start = self.current().span
+        start = self.current_token_span()
         name = self.current().name
 
         if self.current().variant != 'IDENTIFIER':
@@ -1615,18 +1661,19 @@ class Parser:
                 )
 
     def parse_statement(self, inside_block: bool):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         if self.current().variant == 'CPP':
             self.index_inc()
-            return ParsedStatement.InlineCpp(self.parse_block(), self.merge_spans(start, self.previous().span))
+            return ParsedStatement.InlineCpp(self.parse_block(), self.merge_spans(start, self.previous_token_span()))
         elif self.current().variant == 'DEFER':
             self.index_inc()
             statement = self.parse_statement(inside_block=False)
-            return ParsedStatement.Defer(statement, self.merge_spans(start, self.previous().span))
+            return ParsedStatement.Defer(statement, self.merge_spans(start, self.previous_token_span()))
         elif self.current().variant == 'UNSAFE':
             self.index_inc()
             block = self.parse_block()
-            return ParsedStatement.UnsafeBlock(block, self.merge_spans(start, self.previous().span))
+            return ParsedStatement.UnsafeBlock(block, self.merge_spans(start, self.previous_token_span()))
         elif self.current().variant == 'BREAK':
             self.index_inc()
             return ParsedStatement.Break(start)
@@ -1636,29 +1683,29 @@ class Parser:
         elif self.current().variant == 'LOOP':
             self.index_inc()
             block = self.parse_block()
-            return ParsedStatement.Loop(block, self.merge_spans(start, self.previous().span))
+            return ParsedStatement.Loop(block, self.merge_spans(start, self.previous_token_span()))
         elif self.current().variant == 'THROW':
             self.index_inc()
             expr = self.parse_expression(allow_assignments=False, allow_newlines=False)
-            return ParsedStatement.Throw(expr, self.merge_spans(start, self.previous().span))
+            return ParsedStatement.Throw(expr, self.merge_spans(start, self.previous_token_span()))
         elif self.current().variant == 'WHILE':
             self.index_inc()
             condition = self.parse_expression(allow_assignments=False, allow_newlines=True)
             block = self.parse_block()
-            return ParsedStatement.While(condition, block, self.merge_spans(start, self.previous().span))
+            return ParsedStatement.While(condition, block, self.merge_spans(start, self.previous_token_span()))
         elif self.current().variant == 'YIELD':
             self.index_inc()
             expr = self.parse_expression(allow_assignments=False, allow_newlines=False)
             if not inside_block:
                 self.error('`yield` can only be used inside a block', self.merge_spans(start, expr.span))
-            return ParsedStatement.Yield(expr, self.merge_spans(start, self.previous().span))
+            return ParsedStatement.Yield(expr, self.merge_spans(start, self.previous_token_span()))
         elif self.current().variant == 'RETURN':
             self.index_inc()
             if self.current().variant in ['EOL', 'EOF', 'RCURLY']:
-                return ParsedStatement.Return(None, self.current().span)
+                return ParsedStatement.Return(None, self.current_token_span())
             else:
                 return ParsedStatement.Return(self.parse_expression(allow_assignments=False, allow_newlines=False),
-                                              self.merge_spans(start, self.previous().span))
+                                              self.merge_spans(start, self.previous_token_span()))
         elif self.current().variant in ['LET', 'MUT']:
             is_mutable = self.current().variant == 'MUT'
             self.index_inc()
@@ -1670,7 +1717,7 @@ class Parser:
                     parsed_type=ParsedType.Empty(self.empty_span()),
                     is_mutable=is_mutable,
                     inlay_span=None,
-                    span=self.current().span
+                    span=self.current_token_span()
                     )
             if self.current().variant == 'LPAREN':
                 vars_ = self.parse_destructuring_assignment(is_mutable)
@@ -1686,18 +1733,18 @@ class Parser:
                 self.index_inc()
                 init = self.parse_expression(allow_assignments=False, allow_newlines=False)
             else:
-                self.error('expected initializer', self.current().span)
-                init = ParsedExpression.Invalid(self.current().span)
+                self.error('expected initializer', self.current_token_span())
+                init = ParsedExpression.Invalid(self.current_token_span())
             return_statement = ParsedStatement.VarDecl(
                     tuple_var_decl,
                     init,
-                    self.merge_spans(start, self.previous().span))
+                    self.merge_spans(start, self.previous_token_span()))
             if is_destructuring_assignment:
                 old_return_statement = return_statement
                 return_statement = ParsedStatement.DestructuringAssignment(
                         vars_,
                         old_return_statement,
-                        self.merge_spans(start, self.previous().span))
+                        self.merge_spans(start, self.previous_token_span()))
             return return_statement
         elif self.current().variant == 'IF':
             return self.parse_if_statement()
@@ -1705,14 +1752,15 @@ class Parser:
             return self.parse_for_statement()
         elif self.current().variant == 'LCURLY':
             block = self.parse_block()
-            return ParsedStatement.Block(block, self.merge_spans(start, self.previous().span))
+            return ParsedStatement.Block(block, self.merge_spans(start, self.previous_token_span()))
         elif self.current().variant == 'GUARD':
             return self.parse_guard_statement()
         else:
             expr = self.parse_expression(allow_assignments=True, allow_newlines=False)
-            return ParsedStatement.Expression(expr, self.merge_spans(start, self.previous().span))
+            return ParsedStatement.Expression(expr, self.merge_spans(start, self.previous_token_span()))
 
     def parse_destructuring_assignment(self, is_mutable: bool) -> List[ParsedVarDecl]:
+        self.trace()
         self.index_inc()
         var_declarations: List[ParsedVarDecl] = []
 
@@ -1725,17 +1773,18 @@ class Parser:
                 self.index_inc()
                 return var_declarations
             else:
-                self.error('Expected colse of destructuring assignment block', self.current().span)
+                self.error('Expected colse of destructuring assignment block', self.current_token_span())
                 return []
 
     def parse_guard_statement(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         self.index_inc()
         expr = self.parse_expression(allow_assignments=False, allow_newlines=True)
         if self.current().variant == 'ELSE':
             self.index_inc()
         else:
-            self.error('Expected `else` keyword', self.current().span)
+            self.error('Expected `else` keyword', self.current_token_span())
         else_block = self.parse_block()
         remaining_code = ParsedBlock([])
         while not self.eof():
@@ -1748,6 +1797,7 @@ class Parser:
         return ParsedStatement.Guard(expr, else_block, remaining_code, start)
 
     def parse_struct(self, definition_linkage: DefinitionLinkage):
+        self.trace()
         parsed_struct = ParsedRecord(
                 name='',
                 name_span=self.empty_span(),
@@ -1759,24 +1809,24 @@ class Parser:
         if self.current().variant == 'STRUCT':
             self.index_inc()
         else:
-            self.error('Expected `struct` keyword', self.current().span)
+            self.error('Expected `struct` keyword', self.current_token_span())
             return parsed_struct
         if self.eof():
-            self.error('Incomplete struct definition, expected name', self.current().span)
+            self.error('Incomplete struct definition, expected name', self.current_token_span())
             return parsed_struct
         if self.current().variant == 'IDENTIFIER':
             parsed_struct.name = self.current().name
-            parsed_struct.name_span = self.current().span
+            parsed_struct.name_span = self.current_token_span()
             self.index_inc()
         else:
-            self.error('Incomplete struct definition, expected name', self.current().span)
+            self.error('Incomplete struct definition, expected name', self.current_token_span())
         if self.eof():
-            self.error('Incomplete struct definition, expected generic parameters or body', self.current().span)
+            self.error('Incomplete struct definition, expected generic parameters or body', self.current_token_span())
             return parsed_struct
         parsed_struct.generic_parameters = self.parse_generic_parameters()
         self.skip_newlines()
         if self.eof():
-            self.error('Incomplete struct definition, expected body', self.current().span)
+            self.error('Incomplete struct definition, expected body', self.current_token_span())
             return parsed_struct
         fields_methods = self.parse_struct_class_body(definition_linkage,
                                                       default_visibility=Visibility.Public(), is_class=False)
@@ -1785,34 +1835,36 @@ class Parser:
         return parsed_struct
 
     def parse_for_statement(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         self.index_inc()
 
         if self.current().variant != 'IDENTIFIER':
-            self.error('Expected iterator name', self.current().span)
-            return ParsedStatement.Invalid(self.merge_spans(start, self.current().span))
+            self.error('Expected iterator name', self.current_token_span())
+            return ParsedStatement.Invalid(self.merge_spans(start, self.current_token_span()))
 
         iterator_name = self.current().name
-        name_span = self.current().span
+        name_span = self.current_token_span()
         self.index_inc()
         if self.current().variant == 'IN':
             self.index_inc()
         else:
-            self.error('Expected `in`', self.current().span)
-            return ParsedStatement.Invalid(self.merge_spans(start, self.current().span))
+            self.error('Expected `in`', self.current_token_span())
+            return ParsedStatement.Invalid(self.merge_spans(start, self.current_token_span()))
 
         range_ = self.parse_expression(allow_assignments=False, allow_newlines=False)
         block = self.parse_block()
 
         return ParsedStatement.For(iterator_name, name_span, range_,
-                                   block, self.merge_spans(start, self.previous().span))
+                                   block, self.merge_spans(start, self.previous_token_span()))
 
     def parse_if_statement(self):
+        self.trace()
         if self.current().variant != 'IF':
-            self.error('Expected `if` statement', self.current().span)
-            return ParsedStatement.Invalid(self.current().span)
+            self.error('Expected `if` statement', self.current_token_span())
+            return ParsedStatement.Invalid(self.current_token_span())
 
-        start = self.current().span
+        start = self.current_token_span()
         self.index_inc()
 
         condition = self.parse_expression(allow_assignments=False, allow_newlines=True)
@@ -1828,15 +1880,16 @@ class Parser:
                 else_statement = self.parse_if_statement()
             elif self.current().variant == 'LCURLY':
                 block = self.parse_block()
-                if block == else_statement:
-                    self.error('if and else have identical blocks', self.current().span)
-                else_statement = ParsedStatement.Block(block, self.merge_spans(start, self.previous().span))
+                if block == then_block:
+                    self.error('if and else have identical blocks', self.current_token_span())
+                else_statement = ParsedStatement.Block(block, self.merge_spans(start, self.previous_token_span()))
             else:
-                self.error('`else` missing `if` or block', self.previous().span)
-        return ParsedStatement.If(condition, then_block, else_statement, self.merge_spans(start, self.previous().span))
+                self.error('`else` missing `if` or block', self.previous_token_span())
+        return ParsedStatement.If(condition, then_block, else_statement, self.merge_spans(start, self.previous_token_span()))
 
     def parse_typename(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         is_reference = False
         is_mutable_reference = False
 
@@ -1852,10 +1905,10 @@ class Parser:
             parsed_type = self.parse_type_longhand()
         if self.current().variant == 'QUESTIONMARK':
             self.index_inc()
-            span = self.merge_spans(start, self.current().span)
+            span = self.merge_spans(start, self.current_token_span())
             parsed_type = ParsedType.Optional(parsed_type, span)
         if is_reference:
-            span = self.merge_spans(start, self.current().span)
+            span = self.merge_spans(start, self.current_token_span())
             if is_mutable_reference:
                 parsed_type = ParsedType.MutableReference(parsed_type, span)
             else:
@@ -1863,21 +1916,22 @@ class Parser:
         return parsed_type
 
     def parse_type_longhand(self):
+        self.trace()
         parsed_type: ParsedType = ParsedType.Empty(self.empty_span())
         if self.current().variant == 'RAW':
-            start = self.current().span
+            start = self.current_token_span()
             self.index_inc()
             inner = self.parse_typename()
-            span = self.merge_spans(start, self.current().span)
+            span = self.merge_spans(start, self.current_token_span())
             if inner.variant == 'Optional':
                 parsed_type = ParsedType.Optional(ParsedType.RawPointer(inner.inner, span), span)
             else:
                 parsed_type = ParsedType.RawPointer(inner, span)
         elif self.current().variant == 'WEAK':
-            start = self.current().span
+            start = self.current_token_span()
             self.index_inc()
             inner = self.parse_typename()
-            span = self.merge_spans(start, self.current().span)
+            span = self.merge_spans(start, self.current_token_span())
             if inner.variant == 'Optional':
                 parsed_type = ParsedType.Optional(ParsedType.WeakPointer(inner.inner, span), span)
             else:
@@ -1885,7 +1939,7 @@ class Parser:
                 parsed_type = ParsedType.WeakPointer(inner, span)
         elif self.current().variant == 'IDENTIFIER':
             name = self.current().name
-            span = self.current().span
+            span = self.current_token_span()
             self.index_inc()
             parsed_type = ParsedType.Name(name, span)
             if self.current().variant == 'LESS_THAN':
@@ -1899,7 +1953,7 @@ class Parser:
                     if self.current().variant == 'GREATER_THAN':
                         self.index_inc()
                     else:
-                        self.error('Expected `>` after type parameters', self.current().span)
+                        self.error('Expected `>` after type parameters', self.current_token_span())
                 parsed_type = ParsedType.GenericType(name, params, span)
             elif self.current().variant == 'COLON_COLON':
                 self.index_inc()
@@ -1928,10 +1982,10 @@ class Parser:
                     if self.current().variant == 'GREATER_THAN':
                         self.index_inc()
                     else:
-                        self.error('Expected `>` after type parameters', self.current().span)
-                parsed_type = ParsedType.NamespacedName(type_name, namespaces, params, self.previous().span)
+                        self.error('Expected `>` after type parameters', self.current_token_span())
+                parsed_type = ParsedType.NamespacedName(type_name, namespaces, params, self.previous_token_span())
         elif self.current().variant == 'FUNCTION':
-            start = self.current().span
+            start = self.current_token_span()
             self.index_inc()
             params: List[ParsedParameter] = self.parse_function_parameters()
             can_throw = self.current().variant == 'THROWS'
@@ -1942,13 +1996,14 @@ class Parser:
                 self.index_inc()
                 return_type = self.parse_typename()
             else:
-                self.error('Expected `->` after function', self.current().span)
+                self.error('Expected `->` after function', self.current_token_span())
             parsed_type = ParsedType.Function(params, can_throw, return_type, self.merge_spans(start, return_type.span))
         else:
-            self.error('Expected type name', self.current().span)
+            self.error('Expected type name', self.current_token_span())
         return parsed_type
 
     def parse_call(self) -> ParsedCall | None:
+        self.trace()
         call = ParsedCall(
                 namespace=[],
                 name='',
@@ -1956,7 +2011,7 @@ class Parser:
                 type_args=[]
                 )
         if self.current().variant != 'IDENTIFIER':
-            self.error('Expected Function call', self.current().span)
+            self.error('Expected Function call', self.current_token_span())
             return call
 
         call.name = self.current().name
@@ -1989,7 +2044,7 @@ class Parser:
             self.index_inc()
         else:
             self.index = index_reset
-            self.error('Expected `(`', self.current().span)
+            self.error('Expected `(`', self.current_token_span())
             return None
 
         while not self.eof():
@@ -2002,7 +2057,7 @@ class Parser:
                 case 'EOL':
                     self.index_inc()
                 case _:
-                    label_span = self.current().span
+                    label_span = self.current_token_span()
                     label = self.parse_argument_label()
 
                     expr = self.parse_expression(allow_assignments=False, allow_newlines=False)
@@ -2010,6 +2065,7 @@ class Parser:
         return call
 
     def parse_argument_label(self) -> str:
+        self.trace()
         if self.peek().variant == 'COLON' and self.current().variant == 'IDENTIFIER':
             name = self.current().name
             self.index_inc(2)
@@ -2017,6 +2073,7 @@ class Parser:
         return ''
 
     def parse_import(self, parent: ParsedNamespace):
+        self.trace()
         if self.current().variant == 'EXTERN':
             self.index_inc()
             parent.add_extern_import(self.parse_extern_import(parent))
@@ -2024,6 +2081,7 @@ class Parser:
             parent.add_module_import(self.parse_module_import())
 
     def parse_extern_import(self, parent: ParsedNamespace) -> ParsedExternImport:
+        self.trace()
         parsed_import = ParsedExternImport(
                 is_c=False,
                 assigned_namespace=ParsedNamespace(
@@ -2042,25 +2100,25 @@ class Parser:
             if name.casefold() == 'c'.casefold():
                 parsed_import.is_c = True
             else:
-                self.error('Expected `c` or path after `import extern`', self.current().span)
+                self.error('Expected `c` or path after `import extern`', self.current_token_span())
         import_path: str = ''
         if self.current().variant == 'QUOTED_STRING':
             import_path = self.current().quote
             self.index_inc()
         else:
-            self.error('Expected path after `import extern`', self.current().span)
+            self.error('Expected path after `import extern`', self.current_token_span())
 
         if self.current().variant == 'AS':
             self.index_inc()
             if self.current().variant == 'IDENTIFIER':
                 parsed_import.name = self.current().name
-                parsed_import.name_span = self.current().span
+                parsed_import.name_span = self.current_token_span()
                 self.index_inc()
             else:
-                self.error('Expected name after `as` keyword to name the extern import', self.current().span)
+                self.error('Expected name after `as` keyword to name the extern import', self.current_token_span())
 
         if self.current().variant != 'LCURLY':
-            self.error('Expected `{` to start namespace for the extern import', self.current().span)
+            self.error('Expected `{` to start namespace for the extern import', self.current_token_span())
 
         self.index_inc()
 
@@ -2072,45 +2130,51 @@ class Parser:
         return parsed_import
 
     def parse_module_import(self) -> ParsedModuleImport:
+        self.trace()
         parsed_import = ParsedModuleImport(
                 module_name=ImportName('', self.empty_span()),
                 alias_name=None,
                 import_list=[])
+
         if self.current().variant == 'IDENTIFIER':
-            parsed_import.module_name = ImportName(self.current().name, self.current().span)
+            parsed_import.module_name = ImportName(self.current().name, self.current_token_span())
         else:
-            self.error('Expected module name', self.current().span)
+            self.error('Expected module name', self.current_token_span())
             return parsed_import
         self.index_inc()
         if self.eol():
             return parsed_import
+
         if self.current().variant == 'AS':
             self.index_inc()
             if self.current().variant == 'IDENTIFIER':
-                parsed_import.alias_name = ImportName(self.current().name, self.current().span)
+                parsed_import.alias_name = ImportName(self.current().name, self.current_token_span())
                 self.index_inc()
             else:
-                self.error('Expected name', self.current().span)
+                self.error('Expected name', self.current_token_span())
                 self.index_inc()
-        if self.eol():
-            return parsed_import
+            if self.eol():
+                return parsed_import
+
         if self.current().variant != 'LCURLY':
-            self.error('Expected `{`', self.current().span)
+            self.error('Expected `{`', self.current_token_span())
         self.index_inc()
         while not self.eof():
             if self.current().variant == 'IDENTIFIER':
-                parsed_import.import_list.append(ImportName(self.current().name, self.current().span))
+                parsed_import.import_list.append(ImportName(self.current().name, self.current_token_span()))
+                self.index_inc()
             elif self.current().variant in ['COMMA', 'EOL']:
                 self.index_inc()
             elif self.current().variant == 'RCURLY':
                 self.index_inc()
                 break
             else:
-                self.error('Expected import symbol', self.current().span)
+                self.error('Expected import symbol', self.current_token_span())
                 self.index_inc()
         return parsed_import
 
     def parse_enum(self, linkage: DefinitionLinkage, is_boxed: bool):
+        self.trace()
         parsed_enum = ParsedRecord(
                 name='',
                 name_span=self.empty_span(),
@@ -2122,41 +2186,41 @@ class Parser:
         if self.current().variant == 'ENUM':
             self.index_inc()
         else:
-            self.error('Expected `enum` keyword', self.current().span)
+            self.error('Expected `enum` keyword', self.current_token_span())
 
         if self.eof():
-            self.error('Incomplete enum definition, expected name', self.current().span)
+            self.error('Incomplete enum definition, expected name', self.current_token_span())
             return parsed_enum
 
         if self.current().variant == 'IDENTIFIER':
             parsed_enum.name = self.current().name
-            parsed_enum.name_span = self.current().span
+            parsed_enum.name_span = self.current_token_span()
             self.index_inc()
         else:
-            self.error('Incomplete enum definition, expected name', self.current().span)
+            self.error('Incomplete enum definition, expected name', self.current_token_span())
 
         if self.eof():
             self.error('Incomplete enum definition, expected generic parameters or underlying type or body',
-                       self.current().span)
+                       self.current_token_span())
             return parsed_enum
 
         if self.current().variant == 'LESS_THAN':
             parsed_enum.generic_parameters = self.parse_generic_parameters()
 
         if self.eof():
-            self.error("Incomplete enum definition, expected underlying type or body", self.current().span)
+            self.error("Incomplete enum definition, expected underlying type or body", self.current_token_span())
             return parsed_enum
 
         if self.current().variant == 'COLON':
             if is_boxed:
-                self.error('Invalid enum definition: value enums must not have an underlying type', self.current().span)
+                self.error('Invalid enum definition: value enums must not have an underlying type', self.current_token_span())
             self.index_inc()
             underlying_type = self.parse_typename()
 
         self.skip_newlines()
 
         if self.eof():
-            self.error('Incomplete enum definition, expected body', self.current().span)
+            self.error('Incomplete enum definition, expected body', self.current_token_span())
             return parsed_enum
 
         if underlying_type:
@@ -2174,30 +2238,31 @@ class Parser:
         return parsed_enum
 
     def parse_value_enum_body(self, partial_enum: ParsedRecord, linkage: DefinitionLinkage):
+        self.trace()
         methods: List[ParsedMethod] = []
         variants: [ValueEnumVariant] = []
 
         if self.current().variant == 'LCURLY':
             self.index_inc()
         else:
-            self.error('Expected `{` to start the enum body', self.current().span)
+            self.error('Expected `{` to start the enum body', self.current_token_span())
 
         self.skip_newlines()
 
         if self.eof():
-            self.error('Incomplete enum definition, expected variant name', self.previous().span)
+            self.error('Incomplete enum definition, expected variant name', self.previous_token_span())
             return variants, methods
 
         last_visibility: Visibility | None = None
-        last_visibility_span: TextSpan | None = None
+        last_visibility_span: FileTextSpan | None = None
         while not self.eof():
             if self.current().variant == 'IDENTIFIER':
                 if self.peek().variant == 'EQUAL':
                     self.index_inc(2)
                     expr = self.parse_expression(allow_assignments=False, allow_newlines=False)
-                    variants.append(ValueEnumVariant(self.current().name, self.current().span, expr))
+                    variants.append(ValueEnumVariant(self.current().name, self.current_token_span(), expr))
                 else:
-                    variants.append(ValueEnumVariant(self.current().name, self.current().span, None))
+                    variants.append(ValueEnumVariant(self.current().name, self.current_token_span(), None))
                     self.index_inc()
             elif self.current().variant == 'RCURLY':
                 self.index_inc()
@@ -2207,23 +2272,23 @@ class Parser:
             elif self.current().variant == 'PRIVATE':
                 if last_visibility:
                     self.error('Multiple visibility modifiers on one field or method are not allowed',
-                               self.current().span)
+                               self.current_token_span())
                     last_visibility = Visibility.Private()
-                    last_visibility_span = self.current().span
+                    last_visibility_span = self.current_token_span()
                     self.index_inc()
             elif self.current().variant == 'PUBLIC':
                 if last_visibility:
                     self.error('Multiple visibility modifiers on one field or method are not allowed',
-                               self.current().span)
+                               self.current_token_span())
                     last_visibility = Visibility.Public()
-                    last_visibility_span = self.current().span
+                    last_visibility_span = self.current_token_span()
                     self.index_inc()
             elif self.current().variant in ['FUNCTION', 'COMPTIME']:
                 is_comptime = self.current().variant == 'COMPTIME'
                 function_linkage = FunctionLinkage.External() if linkage.variant == 'External' else FunctionLinkage.Internal()
 
                 if function_linkage.variant == 'External' and is_comptime:
-                    self.error('External functions cannot be comptime', self.current().span)
+                    self.error('External functions cannot be comptime', self.current_token_span())
 
                 visibility = last_visibility if last_visibility else Visibility.Public()
                 last_visibility = None
@@ -2232,11 +2297,11 @@ class Parser:
                 parsed_method = self.parse_method(function_linkage, visibility, is_comptime)
                 methods.append(parsed_method)
             else:
-                self.error('Expected identifier or the end of enum block', self.current().span)
+                self.error('Expected identifier or the end of enum block', self.current_token_span())
                 self.index_inc()
 
         if self.eof():
-            self.error('Invalid enum definition, expected `}`', self.current().span)
+            self.error('Invalid enum definition, expected `}`', self.current_token_span())
             return variants, methods
 
         if len(variants) == 0:
@@ -2244,26 +2309,27 @@ class Parser:
         return variants, methods
 
     def parse_sum_enum_body(self, partial_enum: ParsedRecord, linkage: DefinitionLinkage):
+        self.trace()
         methods: List[ParsedMethod] = []
         variants: [ValueEnumVariant] = []
 
         if self.current().variant == 'LCURLY':
             self.index_inc()
         else:
-            self.error('Expected `{` to start the enum body', self.current().span)
+            self.error('Expected `{` to start the enum body', self.current_token_span())
 
         self.skip_newlines()
 
         if self.eof():
-            self.error('Incomplete enum definition, expected variant name', self.previous().span)
+            self.error('Incomplete enum definition, expected variant name', self.previous_token_span())
             return variants, methods
 
         last_visibility: Visibility | None = None
-        last_visibility_span: TextSpan | None = None
+        last_visibility_span: FileTextSpan | None = None
         while not self.eof():
             if self.current().variant == 'IDENTIFIER':
                 name = self.current().name
-                span = self.current().span
+                span = self.current_token_span()
                 if self.peek().variant != 'LPAREN':
                     variants.append(SumEnumVariant(name, span, None))
                     self.index_inc()
@@ -2277,7 +2343,7 @@ class Parser:
                                 parsed_type=self.parse_typename(),
                                 is_mutable=False,
                                 inlay_span=None,
-                                span=self.current().span))
+                                span=self.current_token_span()))
                     if self.current().variant == 'RPAREN':
                         self.index_inc()
                         break
@@ -2285,7 +2351,7 @@ class Parser:
                         self.index_inc()
                     else:
                         self.error(f'Incomplete enum variant definition, expected `,` or `)`, got {self.current()}',
-                                   self.current().span)
+                                   self.current_token_span())
                         break
                 variants.append(SumEnumVariant(name, span, var_decls))
             elif self.current().variant == 'RCURLY':
@@ -2295,23 +2361,23 @@ class Parser:
             elif self.current().variant == 'PRIVATE':
                 if last_visibility:
                     self.error('Multiple visibility modifiers on one field or method are not allowed',
-                               self.current().span)
+                               self.current_token_span())
                     last_visibility = Visibility.Private()
-                    last_visibility_span = self.current().span
+                    last_visibility_span = self.current_token_span()
                     self.index_inc()
             elif self.current().variant == 'PUBLIC':
                 if last_visibility:
                     self.error('Multiple visibility modifiers on one field or method are not allowed',
-                               self.current().span)
+                               self.current_token_span())
                     last_visibility = Visibility.Public()
-                    last_visibility_span = self.current().span
+                    last_visibility_span = self.current_token_span()
                     self.index_inc()
             elif self.current().variant in ['FUNCTION', 'COMPTIME']:
                 is_comptime = self.current().variant == 'COMPTIME'
                 function_linkage = FunctionLinkage.External() if linkage.variant == 'External' else FunctionLinkage.Internal()
 
                 if function_linkage.variant == 'External' and is_comptime:
-                    self.error('External functions cannot be comptime', self.current().span)
+                    self.error('External functions cannot be comptime', self.current_token_span())
 
                 visibility = last_visibility if last_visibility else Visibility.Public()
                 last_visibility = None
@@ -2320,11 +2386,11 @@ class Parser:
                 parsed_method = self.parse_method(function_linkage, visibility, is_comptime)
                 methods.append(parsed_method)
             else:
-                self.error('Expected identifier or the end of enum block', self.current().span)
+                self.error('Expected identifier or the end of enum block', self.current_token_span())
                 self.index_inc()
 
         if self.current().variant != 'RCURLY':
-            self.error('Invalid enum definition, expected `}`', self.current().span)
+            self.error('Invalid enum definition, expected `}`', self.current_token_span())
             return variants, methods
         self.index_inc()
         if len(variants) == 0:
@@ -2332,6 +2398,7 @@ class Parser:
         return variants, methods
 
     def parse_record(self, definition_linkage: DefinitionLinkage) -> ParsedRecord:
+        self.trace()
         if self.current().variant == 'STRUCT':
             return self.parse_struct(definition_linkage)
         elif self.current().variant == 'CLASS':
@@ -2342,7 +2409,7 @@ class Parser:
             self.index_inc()
             return self.parse_enum(definition_linkage, is_boxed=True)
         else:
-            self.error('Expected `struct`, `class`, `enum`, or `boxed` keywords', self.current().span)
+            self.error('Expected `struct`, `class`, `enum`, or `boxed` keywords', self.current_token_span())
             return ParsedRecord(
                     name='',
                     name_span=self.empty_span(),
@@ -2352,6 +2419,7 @@ class Parser:
                     record_type=RecordType.Invalid())
 
     def parse_class(self, definition_linkage: DefinitionLinkage):
+        self.trace()
         parsed_class = ParsedRecord(
                 name='',
                 name_span=self.empty_span(),
@@ -2363,26 +2431,26 @@ class Parser:
         if self.current().variant == 'CLASS':
             self.index_inc()
         else:
-            self.error('Expected `class` keyword', self.current().span)
+            self.error('Expected `class` keyword', self.current_token_span())
             return parsed_class
         # Parse class name
         if self.eof():
-            self.error('Incomplete class definition, expected name', self.current().span)
+            self.error('Incomplete class definition, expected name', self.current_token_span())
             return parsed_class
         if self.current().variant == 'IDENTIFIER':
             parsed_class.name = self.current().name
-            parsed_class.name_span = self.current().span
+            parsed_class.name_span = self.current_token_span()
             self.index_inc()
         else:
-            self.error('Incomplete class definition, expected name', self.current().span)
+            self.error('Incomplete class definition, expected name', self.current_token_span())
         if self.eof():
             self.error('Incomplete class definition, expected generic parameters or super class or body',
-                       self.current().span)
+                       self.current_token_span())
             return parsed_class
         # Parse generic parameters
         parsed_class.generic_parameters = self.parse_generic_parameters()
         if self.eof():
-            self.error('Incomplete class definition, expected super class or body', self.current().span)
+            self.error('Incomplete class definition, expected super class or body', self.current_token_span())
             return parsed_class
 
         # Parse super class
@@ -2393,7 +2461,7 @@ class Parser:
 
         # Parse body
         if self.eof():
-            self.error('Incomplete class definition, expected body', self.current().span)
+            self.error('Incomplete class definition, expected body', self.current_token_span())
             return parsed_class
         fields_methods = self.parse_struct_class_body(
                 definition_linkage, default_visibility=Visibility.Private(), is_class=True)
@@ -2404,23 +2472,24 @@ class Parser:
     def parse_struct_class_body(self,
                                 definition_linkage: DefinitionLinkage, default_visibility: Visibility,
                                 is_class: bool) -> Tuple[List[ParsedField], List[ParsedMethod]]:
+        self.trace()
         if self.current().variant == 'LCURLY':
             self.index_inc()
         else:
-            self.error('Expected `{`', self.current().span)
+            self.error('Expected `{`', self.current_token_span())
 
         fields: List[ParsedField] = []
         methods: List[ParsedMethod] = []
 
         # gets reset after each loop. If someone doesn't consume it, we error out.
         last_visibility: Visibility | None = None
-        last_visibility_span: TextSpan | None = None
+        last_visibility_span: FileTextSpan | None = None
 
         error = False
 
         while not self.eof():
             token_type = self.current().variant
-            token_span = self.current().span
+            token_span = self.current_token_span()
             if token_type == 'RCURLY':
                 if last_visibility:
                     self.error('Expected function or parameter after visibility modifier', token_span)
@@ -2431,23 +2500,20 @@ class Parser:
             elif token_type == 'PUBLIC':
                 if last_visibility:
                     self.error_with_hint('Multiple visibility modifiers on one field or method are not allowed',
-                                         self.current().span, 'Previous modifier is here', last_visibility_span)
-                last_visibility = Visibility.Public()
-                last_visibility_span = self.current().span
+                                         self.current_token_span(), 'Previous modifier is here', last_visibility_span)
+                    last_visibility_span = self.current_token_span()
                 self.index_inc()
             elif token_type == 'PRIVATE':
                 if last_visibility:
                     self.error_with_hint('Multiple visibility modifiers on one field or method are not allowed',
-                                         self.current().span, 'Previous modifier is here', last_visibility_span)
-                last_visibility = Visibility.Private()
-                last_visibility_span = self.current().span
+                                         self.current_token_span(), 'Previous modifier is here', last_visibility_span)
+                last_visibility_span = self.current_token_span()
                 self.index_inc()
             elif token_type == 'RESTRICTED':
                 if last_visibility:
                     self.error_with_hint('Multiple visibility modifiers on one field or method are not allowed',
-                                         self.current().span, 'Previous modifier is here', last_visibility_span)
-                last_visibility = self.parse_restricted_visibility_modifier()
-                last_visibility_span = self.current().span
+                                         self.current_token_span(), 'Previous modifier is here', last_visibility_span)
+                    last_visibility_span = self.current_token_span()
                 self.index_inc()
             elif token_type == 'IDENTIFIER':
                 visibility = last_visibility if last_visibility else default_visibility
@@ -2460,7 +2526,7 @@ class Parser:
                 is_comptime = self.current().variant == 'COMPTIME'
                 function_linkage = FunctionLinkage.Internal() if definition_linkage.variant == 'Internal' else FunctionLinkage.External()
                 if function_linkage.variant == 'External' and is_comptime:
-                    self.error('External functions cannot be comptime', self.current().span)
+                    self.error('External functions cannot be comptime', self.current_token_span())
                 visibility = last_visibility if last_visibility else default_visibility
                 last_visibility = None
                 last_visibility_span = None
@@ -2472,20 +2538,21 @@ class Parser:
                     error = True
                 self.index_inc()
         if is_class:
-            self.error('Incomplete class body, expected `}`', self.current().span)
+            self.error('Incomplete class body, expected `}`', self.current_token_span())
         else:
-            self.error('Incomplete struct body, expected `}`', self.current().span)
+            self.error('Incomplete struct body, expected `}`', self.current_token_span())
         return fields, methods
 
     def parse_restricted_visibility_modifier(self) -> Visibility:
-        restricted_span = self.current().span
+        self.trace()
+        restricted_span = self.current_token_span()
 
         self.index_inc()
 
         if self.current().variant == 'LPAREN':
             self.index_inc()
         else:
-            self.error('Expected `(`', self.current().span)
+            self.error('Expected `(`', self.current_token_span())
 
         whitelist: List[ParsedType] = []
         expect_comma = False
@@ -2497,17 +2564,17 @@ class Parser:
                 if expect_comma:
                     expect_comma = False
                 else:
-                    self.error('Unexpected comma', self.current().span)
+                    self.error('Unexpected comma', self.current_token_span())
                 self.index_inc()
             else:
                 if expect_comma:
-                    self.error('Expected comma', self.current().span)
+                    self.error('Expected comma', self.current_token_span())
                 self.skip_newlines()
                 parsed_type = self.parse_typename()
                 whitelist.append(parsed_type)
                 expect_comma = True
-        # Note: why not `restricted_span = self.merge_spans(restricted span, self.current().span)`?
-        restricted_span.end = self.current().span.end
+        # Note: why not `restricted_span = self.merge_spans(restricted span, self.current_token_span())`?
+        restricted_span.end = self.current_token_span().end
 
         if len(whitelist) == 0:
             self.error('Type list cannot be empty', restricted_span)
@@ -2515,11 +2582,12 @@ class Parser:
         if self.current().variant == 'RPAREN':
             self.index_inc()
         else:
-            self.error('Expected `(`', self.current().span)
+            self.error('Expected `(`', self.current_token_span())
 
         return Visibility.Restricted(whitelist, restricted_span)
 
     def parse_field(self, visibility: Visibility):
+        self.trace()
         parsed_variable_declaration = self.parse_variable_declaration(is_mutable=True)
 
         if parsed_variable_declaration.parsed_type.variant == 'Empty':
@@ -2530,24 +2598,26 @@ class Parser:
                 visibility=visibility)
 
     def parse_try_block(self):
-        start = self.current().span
+        self.trace()
+        start = self.current_token_span()
         stmt = self.parse_statement(inside_block=False)
         error_name = ''
-        error_span = self.current().span
+        error_span = self.current_token_span()
 
         if self.current().variant == 'CATCH':
             self.index_inc()
             if self.current().variant == 'IDENTIFIER':
-                error_span = self.current().span
+                error_span = self.current_token_span()
                 error_name = self.current().name
                 self.index_inc()
         else:
-            self.error('Expected `catch`', self.current().span)
+            self.error('Expected `catch`', self.current_token_span())
         catch_block = self.parse_block()
         return ParsedExpression.TryBlock(stmt, error_name, error_span,
-                                         catch_block, self.merge_spans(start, self.current().span))
+                                         catch_block, self.merge_spans(start, self.current_token_span()))
 
     def parse_method(self, linkage: FunctionLinkage, visibility: Visibility, is_comptime: bool) -> ParsedMethod:
+        self.trace()
         parsed_function = self.parse_function(linkage, visibility, is_comptime)
 
         if linkage.variant == 'External':
@@ -2556,6 +2626,7 @@ class Parser:
         return ParsedMethod(parsed_function, visibility)
 
     def parse_generic_parameters(self) -> List[ParsedGenericParameter]:
+        self.trace()
         if self.current().variant != 'LESS_THAN':
             return []
         self.index_inc()
@@ -2563,21 +2634,22 @@ class Parser:
         self.skip_newlines()
         while self.current().variant != 'GREATER_THAN' or self.current().variant != 'INVALID':
             if self.current().variant == 'IDENTIFIER':
-                generic_parameters.append(ParsedGenericParameter(self.current().name, self.current().span))
+                generic_parameters.append(ParsedGenericParameter(self.current().name, self.current_token_span()))
                 self.index_inc()
                 if self.current().variant in ['COMMA', 'EOL']:
                     self.index_inc()
             else:
-                self.error('Expected generic parameter name', self.current().span)
+                self.error('Expected generic parameter name', self.current_token_span())
                 return generic_parameters
         if self.current().variant == 'GREATER_THAN':
             self.index_inc()
         else:
-            self.error('Expected `>` to end the generic parameters', self.current().span)
+            self.error('Expected `>` to end the generic parameters', self.current_token_span())
             return generic_parameters
         return generic_parameters
 
     def parse_namespace(self) -> ParsedNamespace:
+        self.trace()
         ns = ParsedNamespace(
                 name=None,
                 name_span=None,
@@ -2614,22 +2686,22 @@ class Parser:
                     ns.records.append(parsed_record)
                 case 'NAMESPACE':
                     self.index_inc()
-                    name: Tuple[str, TextSpan]
+                    name: Tuple[str, FileTextSpan]
                     match self.current().variant:
                         case 'IDENTIFIER':
                             self.index_inc()
-                            name = (self.current().name, self.current().span)
+                            name = (self.current().name, self.current_token_span())
                         case _:
                             name = ('', self.empty_span())
                     if self.current().variant == 'LCURLY':
                         self.index_inc()
                     else:
-                        self.error('Expected `{`', self.current().span)
+                        self.error('Expected `{`', self.current_token_span())
                     namespace_ = self.parse_namespace()
                     if self.current().variant == 'RCURLY':
                         self.index_inc()
                     else:
-                        self.error('Incomplete namespace. Are you missing a `}`?', self.previous().span)
+                        self.error('Incomplete namespace. Are you missing a `}`?', self.previous_token_span())
                     if name != ():
                         namespace_.name = name[0]
                         namespace_.name_span = name[1]
@@ -2648,24 +2720,30 @@ class Parser:
                             parsed_class = self.parse_class(DefinitionLinkage.External())
                             ns.records.append(parsed_class)
                         case _:
-                            self.error('Unexpected keyword', self.current().span)
+                            self.error('Unexpected keyword', self.current_token_span())
                 case 'EOL':
                     self.index_inc()
                 case 'RCURLY':
                     break
                 case _:
-                    self.error('Unexpected token (expected keyword)', self.current().span)
+                    self.error('Unexpected token (expected keyword)', self.current_token_span())
                     break
         return ns
 
-    def merge_spans(self, one: TextSpan, two: TextSpan):
-        if two.file_id == self.compiler.current_file and two.start == 0 and two.end == 0:
+    def merge_spans(self, one: FileTextSpan, two: FileTextSpan):
+        if two.file_id == self.compiler.current_file and two.span.start.count == 0 and two.span.end.count == 0:
             return one
         if one.file_id != two.file_id:
             self.error('Cannot merge spans between different files', one)
-        return TextSpan(one.file_id, one.start, two.end)
+        return FileTextSpan(one.file_id, TextSpan(one.span.start, two.span.end))
 
     @classmethod
-    def parse(cls, compiler: Compiler, lexer: Lexer):
-        parser = Parser(0, compiler, lexer)
-        return parser.parse_namespace()
+    def parse(cls, compiler: Compiler):
+        parser = Parser(compiler)
+        try:
+            result = parser.parse_namespace()
+            print(parser.lexer.index, len(parser.lexer.characters))
+            return result
+        except Exception as e:
+            print(parser.lexer.index, len(parser.lexer.characters))
+            raise Exception("%s: %s" % (parser.current_token_span(), e))
