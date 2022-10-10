@@ -164,6 +164,29 @@ class Lexer:
         else:
             raise StopIteration
 
+    def dbg_print_current(self, context_size=15):
+        default_text_color = '\x1b[38;5;250m'
+        dark_red = '\x1b[38;5;52m'
+
+        start = max(0, self.index - context_size)
+        end = min(self.index + context_size, len(self.compiler.current_file_contents))
+
+        start_text = self.compiler.current_file_contents[start:self.index]
+        start_text = start_text.encode('unicode_escape').decode('utf-8')
+
+        current_char = self.compiler.current_file_contents[self.index]
+        current_char = current_char.encode('unicode_escape').decode('utf-8')
+
+        message = default_text_color + start_text + dark_red + current_char + default_text_color
+        print(message, end='')
+        if self.index + 1 < len(self.compiler.current_file_contents):
+            # If there's something to the right of our current character, print it as well
+            end_text = self.compiler.current_file_contents[self.index+1:end].encode('unicode_escape').decode('utf-8')
+            print(end_text, end='\n\n')
+        else:
+            # if there's nothing more to add, just print the default line end, aka new line.
+            print('\n')
+
     def index_inc(self, steps: int = 1, debug: bool =False):
         self.index += steps
         if debug:
@@ -211,18 +234,18 @@ class Lexer:
 
     def lex_minus(self):
         start = self.index
-        self.index_inc()
         match self.peek():
             case '=':
-                self.index_inc()
+                self.index_inc(2)
                 return Token.MINUS_EQUAL(self.span(start, self.index))
             case '-':
-                self.index_inc()
+                self.index_inc(2)
                 return Token.MINUS_MINUS(self.span(start, self.index))
             case '>':
-                self.index_inc()
+                self.index_inc(2)
                 return Token.ARROW(self.span(start, self.index))
             case _:
+                self.index_inc()
                 return Token.MINUS(self.span(self.index - 1, self.index))
 
     def lex_asterisk(self):
@@ -362,45 +385,17 @@ class Lexer:
             self.error('unexpected eof')
             return Token.INVALID(self.span(self.index, self.index + 1))
 
-        # Figure out if we're lexing a number
-        if self.peek().isdigit():
-            return self.lex_number()
-        # or a name
-        elif self.peek().isalpha() or self.peek() == '_':
-            while self.peek().isalnum() or self.peek() == '_':
-                self.index_inc()
-            self.index_inc() # note: is this correct?
-            end = self.index
-            chars = self.compiler.current_file_contents[start:end]
-            span = self.span(start, end)
-            return token_from_keyword_or_identifier(chars, span)
-
-        # due to some inconsistencies in index incrementing, these following if statements detect
-        # whether we're looking at a single character, or a single digit.
-        if self.compiler.current_file_contents[self.index].isalpha() and not self.peek().isalpha():
-            end = self.index + 1
-            span = self.span(start, end)
-            char = self.compiler.current_file_contents[self.index]
+        while self.peek().isalnum() or self.peek() == '_':
             self.index_inc()
-            return token_from_keyword_or_identifier(char, span)
-
-        if self.compiler.current_file_contents[self.index].isdigit() and not self.peek().isdigit():
-            val = int(self.compiler.current_file_contents[self.index])
-            self.index_inc()
-            return Token.NUMBER(NumericConstant.U64(val), self.span(start, self.index))
-
-        self.index_inc()
-        unknown_char = self.compiler.current_file_contents[self.index]
+        self.index_inc()  # note: is this correct?
         end = self.index
+        chars = self.compiler.current_file_contents[start:end]
         span = self.span(start, end)
-        self.error(f'unexpected character: {unknown_char}', span)  # todo: handle span in error stuff
-        return Token.INVALID(span)
+        return token_from_keyword_or_identifier(chars, span)
 
     def consume_numeric_literal_suffix(self):
         next_char = self.compiler.current_file_contents[self.index]
         if next_char not in ['u', 'i', 'f']:
-            # print('consume_numeric_literal_suffix: next_char is not `u`, `i` or `f`')
-            # print(f'next_char: {next_char}')
             return None
         elif next_char == 'u' and self.peek(2) == 'z':
             self.index_inc(2)
@@ -485,26 +480,27 @@ class Lexer:
         if floating:
             default_suffix = LiteralSuffix.F64
 
-        # print('checking next char for literal suffix')
         result = self.consume_numeric_literal_suffix()
-        # print(f'result = {result}')
         suffix = result if result else default_suffix
-        # print(f'suffix is: {suffix}')
 
         is_float_suffix = True if suffix in [LiteralSuffix.F64, LiteralSuffix.F32] else False
 
         if floating and not is_float_suffix:
             return Token.INVALID(span)
 
-        # print(f'value_string = {self._value_string}')
-
         if floating:
             value = float(self._value_string)
         else:
-            value = int(self._value_string)
+            # FIXME: This is not great error handling.
+            try:
+                value = int(self._value_string)
+            except ValueError as e:
+                current_file_id = self.compiler.current_file
+                current_file_name = self.compiler.get_file_path(current_file_id)
+                print(f'Error processing file `{current_file_name}`, index: {self.index}: {self.compiler.current_file_contents[max(0,self.index-10):min(self.index+10, len(self.compiler.current_file_contents))]}')
+                raise e
 
         token = self.make_numeric_constant(value, suffix, span)
-        # print(f'token = {token}')
         return token
 
     def eof(self):
@@ -543,9 +539,9 @@ class Lexer:
 
     def lex_greater_than(self):
         start = self.index
-        self.index_inc()
         match self.peek():
             case '=':
+                self.index_inc()
                 return Token.GREATER_THAN_OR_EQUAL(self.span(start, self.index))
             case '>':
                 self.index_inc()
@@ -557,8 +553,10 @@ class Lexer:
                         self.index_inc()
                         return Token.RIGHT_SHIFT_EQUAL(self.span(start, self.index))
                     case _:
+                        self.index_inc()
                         return Token.RIGHT_SHIFT(self.span(self.index - 1, self.index))
             case _:
+                self.index_inc()
                 return Token.GREATER_THAN(self.span(self.index - 1, self.index))
 
     def lex_dot(self):
@@ -607,8 +605,6 @@ class Lexer:
         return int(string, base)
 
     def make_numeric_constant(self, number: int | float, suffix: LiteralSuffix, span: TextSpan):
-        # print('making numeric constant')
-        # print(f'suffix variant = {suffix.variant}')
         match suffix.variant:
             case 'U8':
                 return Token.NUMBER(NumericConstant.U8(number), span) \
@@ -647,7 +643,6 @@ class Lexer:
         # Adapted from the jakt compiler's Lexer.next() function.
         # Consume whitespace until a character is encountered or Eof is
         # reached. For Eof return a token.
-        # print(f'index: {self.index}, file length: {len(self.compiler.current_file_contents)}')
         while True:
             if self.index >= len(self.compiler.current_file_contents):
                 return Token.EOF(self.span(self.index - 1, self.index - 1))
@@ -656,14 +651,8 @@ class Lexer:
             else:
                 break
 
-        # while self.compiler.current_file_contents[self.index] in [' ', '']:
-        #     print('ignoring extraneous space or empty string, this should not happen')
-        #     self.index_inc()
-
         start = self.index
-        current_character = self.compiler.current_file_contents[self.index].encode('unicode_escape').decode('utf-8')
-        # print(f'tokenize_file: current character = `{current_character}`')
-        # print(f'tokenize_file: next character = `{self.peek().encode("unicode_escape").decode("utf-8")}`')
+        self.dbg_print_current()
 
         match self.compiler.current_file_contents[self.index]:
             case '(':
@@ -733,8 +722,49 @@ class Lexer:
                 return self.lex_quoted_string(delimiter='\'')
             case '\"':
                 return self.lex_quoted_string(delimiter='\"')
+            case 'b':
+                return self.lex_character_constant_or_name()
+            case 'c':
+                return self.lex_character_constant_or_name()
+            case '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '0':
+                self.lex_number()
             case _:
                 return self.lex_number_or_name()
+
+    def lex_character_constant_or_name(self):
+        if self.peek() != '\'':
+            return self.lex_number_or_name()
+
+        is_byte = self.peek() == 'b'
+        if is_byte:
+            self.index_inc()
+
+        start = self.index
+        self.index_inc()
+
+        escaped = False
+
+        while not self.eof() and (escaped or self.peek() != '\''):
+            if (escaped and (self.index - start > 3)) or self.index - start > 2:
+                break
+
+            if not escaped and self.peek() == '\\':
+                escaped = True
+
+            self.index_inc()
+
+        if self.eof() or self.peek() != '\'':
+            self.error('Expected single quote', self.span(start, start))
+        self.index_inc()
+
+        quote = self.compiler.current_file_contents[start + 1]
+        if escaped:
+            quote += self.compiler.current_file_contents[start + 2]
+
+        end = self.index
+        if is_byte:
+            return Token.SINGLE_QUOTE_BYTE_STRING(quote, self.span(start, end))
+        return Token.SINGLE_QUOTE_STRING(quote, self.span(start, end))
 
     def lex_hex_number(self, start: int):
         value: int = self.lex_prefixed_number(base=16)
@@ -774,24 +804,18 @@ class Lexer:
 
     def handle_floats(self):
         start = self.index
-        # print('inside handle_floats')
         while not self.eof():
             digit = self.compiler.current_file_contents[self.index]
-            # print(f'digit = {digit}')
-            # print(f'start = {start}, index = {self.index+1}')
             if digit == '.':
-                # print('found decimal')
                 if not self.peek().isdigit() or self._floating:
                     break
                 self._floating = True
                 self.index_inc()
                 continue
             elif not digit.isdigit():
-                # print(f'`{digit}` is not a digit, breaking')
                 break
 
             self._value_string = self.compiler.current_file_contents[start:self.index+1]
-            # print(f'value_string = {self._value_string}')
             self.index_inc()
 
             if not self._floating:
