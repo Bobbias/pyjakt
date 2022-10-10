@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import errno
+from pathlib import Path
+from pprint import pprint
 from typing import List, Dict, NoReturn
 
 from compiler.error import CompilerError, print_error_json, print_error, eprintln
@@ -24,18 +26,19 @@ class Compiler:
     lexer = None
     json_errors: bool = False
     debug_print: bool = False
+    include_paths: List[Path]
 
-    def dbg_print(self, message: str):
+    def dbg_print(self, *args, **kwargs):
         if self.debug_print:
-            print(message)
+            pprint(*args, **kwargs)
 
     def current_file_id(self):
         return self.current_file
     
-    def get_file_path(self, file_id):
-        if file_id >= len(self.file_list):
+    def get_file_path(self, file_id: FileId):
+        if file_id.id >= len(self.file_list):
             return None
-        return self.file_list[file_id]
+        return self.file_list[file_id.id]
 
     def get_file_id_or_register(self, filename: str):
         if filename in self.file_ids.keys():
@@ -88,6 +91,12 @@ class Compiler:
                         print_error_json(file_name, error)
                     else:
                         print_error(file_name, file.text, error)
+
+    def search_for_path(self, module_name: str) -> Path | None:
+        for include_path in self.include_paths:
+            candidate_path = include_path / (module_name + '.jakt')
+            if candidate_path.exists():
+                return candidate_path
 
     def panic(self, message: str) -> NoReturn:
         self.print_errors()
