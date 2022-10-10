@@ -6,7 +6,8 @@
 from __future__ import annotations
 
 # Third party imports
-from typing import List, Tuple, Union, Any
+from typing import List, Tuple, Union, Any, Optional
+from compiler.lexer import Lexer
 
 from sumtype import sumtype
 
@@ -544,14 +545,25 @@ class ParsedExpression(sumtype):
 
 
 class Parser:
-    index: int
-    tokens: List[Token]
+    lexer: Lexer
     compiler: Compiler
+    buffer: List[Token]
+    previous_token: Token
 
     debug_info = DebugInfo()
 
     def index_inc(self, steps: int = 1, debug: bool = False):
-        self.index += steps
+        steps_todo = steps
+        if steps_todo and self.buffer:
+            buffer_steps = min(steps, len(self.buffer))
+            self.previous_token = self.buffer[buffer_steps - 1]
+            self.buffer = self.buffer[buffer_steps:]
+            steps_todo -= buffer_steps
+        for _ in range(steps_todo):
+            try:
+                self.previous_token = next(self.lexer)
+            except StopIteration:
+                self.is_eof = True
         if debug:
             from inspect import stack
             caller = stack()[1].function
@@ -559,10 +571,13 @@ class Parser:
             color = self.debug_info.get_color(line)
             print(f'\x1b[38;5;{color}m{caller}, {line}\x1b[38;5;250m: self.index += {steps}: {self.index}')
 
-    def __init__(self, index: int, compiler: Compiler, tokens: List[Token]):
+    def __init__(self, index: int, compiler: Compiler, lexer: Lexer):
         self.index = index
         self.compiler = compiler
-        self.tokens = tokens
+        self.lexer = lexer
+        self.buffer = list()
+        self.is_eof = False
+        self.previous_token = Token.EOF(self.span(0, 0))
 
     def span(self, start, end):
         return TextSpan(self.compiler.current_file, start, end)
@@ -579,20 +594,25 @@ class Parser:
             self.compiler.errors.append(CompilerError.MessageWithHint(message, span, hint, hint_span))
 
     def eof(self):
-        return self.index >= (len(self.tokens) - 1)
+        return self.is_eof and not self.buffer
 
     def eol(self):
-        return self.eof() or (self.tokens[self.index].variant == 'EOL')
+        return self.current().variant == 'EOL'
 
-    def peek(self, steps: int = 1):
-        if self.eof() or self.index + steps >= len(self.tokens):
-            return self.tokens[-1]
-        return self.tokens[self.index + steps]
+    def peek(self, steps: int = 1)->Token:
+        if self.eof():
+            return Token.EOF(self.span(0, 0))
+        while not self.is_eof and len(self.buffer) <= steps:
+            try:
+                self.buffer.append(next(self.lexer))
+            except StopIteration:
+                self.is_eof = True
+        if steps >= len(self.buffer):
+            return Token.EOF(self.span(0, 0))
+        return self.buffer[steps]
 
     def previous(self):
-        if self.index == 0 or self.index > len(self.tokens):
-            return Token.EOF(self.span(0, 0))
-        return self.tokens[self.index - 1]
+        return self.previous_token
 
     def current(self):
         return self.peek(0)
@@ -917,10 +937,9 @@ class Parser:
                 if expr.variant == 'Invalid':
                     break
                 output.append(expr)
-        end = self.index - 1
-        if end >= len(self.tokens) or self.tokens[end] != 'RCURLY':
-            self.error('Expected `}` to close the set', self.tokens[end].span)
-        return ParsedExpression.Set(output, self.merge_spans(start, self.tokens[end].span))
+        if self.previous() != 'RCURLY':
+            self.error('Expected `}` to close the set', self.previous().span)
+        return ParsedExpression.Set(output, self.merge_spans(start, self.previous().span))
 
     def parse_match_expression(self):
         start = self.current().span
@@ -1068,16 +1087,15 @@ class Parser:
                     dict_output.append((expr, value))
                 elif not is_dictionary:
                     output.append(expr)
-        end = self.index - 1
-        if end >= len(self.tokens) or self.tokens[end].variant != 'RSQUARE':
-            self.error('Expected `]` to close the array', self.tokens[end].span)
+        if self.previous() != 'RSQUARE':
+            self.error('Expected `]` to close the array', self.previous().span)
         if is_dictionary:
             return ParsedExpression.Dictionary(
                     values_=dict_output,
-                    span=self.merge_spans(start, self.tokens[end].span))
+                    span=self.merge_spans(start, self.previous().span))
         else:
             return ParsedExpression.Array(values_=output, fill_size=fill_size_expr,
-                                          span=self.merge_spans(start, self.tokens[end].span))
+                                          span=self.merge_spans(start, self.previous().span))
 
     def parse_captures(self):
         captures: List[ParsedCapture] = []
@@ -2645,6 +2663,6 @@ class Parser:
         return TextSpan(one.file_id, one.start, two.end)
 
     @classmethod
-    def parse(cls, compiler: Compiler, tokens: List[Token]):
-        parser = Parser(0, compiler, tokens)
+    def parse(cls, compiler: Compiler, lexer: Lexer):
+        parser = Parser(0, compiler, lexer)
         return parser.parse_namespace()

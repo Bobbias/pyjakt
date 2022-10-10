@@ -199,14 +199,6 @@ class Lexer:
     def error(self, message: str, span: TextSpan = TextSpan()):
         self.compiler.errors.append(CompilerError.Message(message, span))
 
-    def lex(self):
-        tokens: List[Token] = []
-
-        for token in self:
-            tokens.append(token)
-
-        return tokens
-
     def peek(self, steps: int = 1):
         end = self.index + steps
         if end >= len(self.compiler.current_file_contents):
