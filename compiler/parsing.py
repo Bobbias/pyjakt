@@ -117,7 +117,7 @@ class DefinitionLinkage(sumtype):
 class RecordType(sumtype):
     def Struct(fields: List[ParsedField]): ...  # -> RecordType
 
-    def Class(fields: List[ParsedField], super_class: ParsedType): ...  # -> RecordType
+    def Class(fields: List[ParsedField], super_class: Union[ParsedType, None]): ...  # -> RecordType
 
     def ValueEnum(underlying_type: ParsedType, variants: List[ValueEnumVariant]): ...  # -> RecordType
 
@@ -1356,7 +1356,6 @@ class Parser:
                 must_instantiate=False,
                 is_comptime=is_comptime
                 )
-
         self.index_inc()
 
         if self.eof():
@@ -1581,6 +1580,7 @@ class Parser:
 
     def parse_variable_declaration(self, is_mutable: bool):
         start = self.current().span
+        name = self.current().name
 
         if self.current().variant != 'IDENTIFIER':
             return ParsedVarDecl(
@@ -1590,7 +1590,7 @@ class Parser:
                     inlay_span=None,
                     span=start
                     )
-        name = self.current().name
+
 
         self.index_inc()
         if self.current().variant == 'COLON':
@@ -1846,6 +1846,7 @@ class Parser:
             if self.current().variant == 'MUT':
                 is_mutable_reference = True
                 self.index_inc()
+
         parsed_type = self.parse_type_shorthand()
         if parsed_type.variant == 'Empty':
             parsed_type = self.parse_type_longhand()
@@ -2383,11 +2384,13 @@ class Parser:
         if self.eof():
             self.error('Incomplete class definition, expected super class or body', self.current().span)
             return parsed_class
+
         # Parse super class
         if self.current().variant == 'COLON':
             self.index_inc()
             super_class = self.parse_typename()
         self.skip_newlines()
+
         # Parse body
         if self.eof():
             self.error('Incomplete class definition, expected body', self.current().span)
@@ -2429,23 +2432,23 @@ class Parser:
                 if last_visibility:
                     self.error_with_hint('Multiple visibility modifiers on one field or method are not allowed',
                                          self.current().span, 'Previous modifier is here', last_visibility_span)
-                    last_visibility = Visibility.Public()
-                    last_visibility_span = self.current().span
-                    self.index_inc()
+                last_visibility = Visibility.Public()
+                last_visibility_span = self.current().span
+                self.index_inc()
             elif token_type == 'PRIVATE':
                 if last_visibility:
                     self.error_with_hint('Multiple visibility modifiers on one field or method are not allowed',
                                          self.current().span, 'Previous modifier is here', last_visibility_span)
-                    last_visibility = Visibility.Private()
-                    last_visibility_span = self.current().span
-                    self.index_inc()
+                last_visibility = Visibility.Private()
+                last_visibility_span = self.current().span
+                self.index_inc()
             elif token_type == 'RESTRICTED':
                 if last_visibility:
                     self.error_with_hint('Multiple visibility modifiers on one field or method are not allowed',
                                          self.current().span, 'Previous modifier is here', last_visibility_span)
-                    last_visibility = self.parse_restricted_visibility_modifier()
-                    last_visibility_span = self.current().span
-                    self.index_inc()
+                last_visibility = self.parse_restricted_visibility_modifier()
+                last_visibility_span = self.current().span
+                self.index_inc()
             elif token_type == 'IDENTIFIER':
                 visibility = last_visibility if last_visibility else default_visibility
                 last_visibility = None
