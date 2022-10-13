@@ -8,25 +8,25 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Tuple, Union
 
-from compiler.lexing.util import TextSpan
+from compiler.lexing.util import FileTextSpan
 
 
 @dataclass
 class ParsedGenericParameter:
     name: str
-    span: TextSpan
+    span: FileTextSpan
 
 
 @dataclass
 class ParsedFunction:
     name: str
-    name_span: TextSpan
+    name_span: FileTextSpan
     visibility: 'Visibility'
     params: List['ParsedParameter']
     generic_parameters: List[ParsedGenericParameter]
     block: 'ParsedBlock'
     return_type: 'ParsedType'
-    return_type_span: TextSpan
+    return_type_span: FileTextSpan
     can_throw: bool
     type: 'FunctionType'
     linkage: 'FunctionLinkage'
@@ -39,8 +39,8 @@ class ParsedVarDecl:
     name: str
     parsed_type: 'ParsedType'
     is_mutable: bool
-    inlay_span: TextSpan | None # wtf is this?
-    span: TextSpan
+    inlay_span: FileTextSpan | None # wtf is this?
+    span: FileTextSpan
 
 
 @dataclass
@@ -54,21 +54,21 @@ class ParsedVariable:
     name: str
     parsed_type: 'ParsedType'
     is_mutable: bool
-    span: TextSpan
+    span: FileTextSpan
 
 
 @dataclass
 class ParsedCall:
     namespace: List[str]
     name: str
-    args: List[Tuple[str, TextSpan, 'ParsedExpression']]
+    args: List[Tuple[str, FileTextSpan, 'ParsedExpression']]
     type_args: List['ParsedType']
 
 
 @dataclass
 class ImportName:
     name: str
-    span: TextSpan
+    span: FileTextSpan
 
 
 @dataclass
@@ -127,7 +127,7 @@ class ParsedExternImport:
 @dataclass
 class ParsedNamespace:
     name: str | None
-    name_span: TextSpan | None
+    name_span: FileTextSpan | None
     functions: List[ParsedFunction]
     records: List['ParsedRecord']
     namespaces: List['ParsedNamespace']
@@ -170,21 +170,21 @@ class ParsedNamespace:
 @dataclass
 class ValueEnumVariant:
     name: str
-    span: TextSpan
+    span: FileTextSpan
     value: Union['ParsedExpression', None]
 
 
 @dataclass
 class SumEnumVariant:
     name: str
-    span: TextSpan
+    span: FileTextSpan
     params: List[ParsedVarDecl] | None
 
 
 @dataclass
 class ParsedRecord:
     name: str
-    name_span: TextSpan
+    name_span: FileTextSpan
     generic_parameters: List[ParsedGenericParameter]
     definition_linkage: 'DefinitionLinkage'
     methods: List[ParsedMethod]
@@ -194,7 +194,7 @@ class ParsedRecord:
 @dataclass
 class ParsedMatchCase:
     patterns: List['ParsedMatchPattern']
-    marker_span: TextSpan
+    marker_span: FileTextSpan
     body: 'ParsedMatchBody'
 
     def __eq__(self, other: 'ParsedMatchCase'):
@@ -210,13 +210,13 @@ class ParsedMatchCase:
 class ParsedBlock:
     stmts: List['ParsedStatement']
 
-    def find_yield_span(self) -> TextSpan | None:
+    def find_yield_span(self) -> FileTextSpan | None:
         for stmt in self.stmts:
             if stmt.variant == 'Yield':
                 return stmt.span
         return None
 
-    def span(self, parser: 'Parser') -> TextSpan | None:
+    def span(self, parser: 'Parser') -> FileTextSpan | None:
         start = None
         end = 0
 
@@ -242,11 +242,11 @@ class ParsedParameter:
     requires_label: bool
     variable: ParsedVariable
     default_argument: Union['ParsedExpression', None]
-    span: TextSpan
+    span: FileTextSpan
 
 
 @dataclass
 class EnumVariantPatternArgument:
     name: str | None
     binding: str
-    span: TextSpan
+    span: FileTextSpan
