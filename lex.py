@@ -14,22 +14,15 @@ import os
 from pprint import pprint
 
 # First party imports
-from compiler.compiler import Compiler
 from compiler.lexer import Lexer
-from compiler.parsing import Parser
 
 
 def main():
-    compiler = Compiler()
-
-    test_file_id = compiler.get_file_id_or_register(sys.argv[1])
-    file_is_set = compiler.set_current_file(test_file_id)
-
-    if not file_is_set:
-        sys.exit(1)
-
-    parsed_namespace = Parser.parse(compiler)
-    #pprint(parsed_namespace)
+    content = open(sys.argv[1], "r").read()
+    print(len(content))
+    lexer = Lexer(content, lambda error: print(error))
+    for token in lexer:
+        pprint(token)
 
 ##########
 # Call main if run as script

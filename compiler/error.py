@@ -11,7 +11,7 @@ from typing import List, Tuple
 
 from sumtype import sumtype
 
-from compiler.lexing.util import TextSpan
+from compiler.lexing.util import FileTextSpan
 
 
 def eprint(*args, **kwargs):
@@ -23,8 +23,8 @@ def eprintln(*args, **kwargs):
 
 
 class CompilerError(sumtype):
-    def Message(message: str, span: TextSpan): ...
-    def MessageWithHint(message: str, span: TextSpan, hint: str, hint_span: TextSpan): ...
+    def Message(message: str, span: FileTextSpan): ...
+    def MessageWithHint(message: str, span: FileTextSpan, hint: str, hint_span: FileTextSpan): ...
 
 
 class MessageSeverity(sumtype):
@@ -54,7 +54,7 @@ def print_error(file_name: str, file_contents: str, error: CompilerError):
         display_message_with_span(MessageSeverity.Hint(), file_name, file_contents, error.hint, error.hint_span)
 
 
-def display_message_with_span_json(severity: MessageSeverity, file_name: str, message: str, span: TextSpan):
+def display_message_with_span_json(severity: MessageSeverity, file_name: str, message: str, span: FileTextSpan):
     print(f"{{\"type\":\"diagnostic\",\"message\":\"{message}\","
             f"\"severity\":\"{severity.variant}\","
             f"\"file_id\":{span.file_id},"
@@ -62,7 +62,7 @@ def display_message_with_span_json(severity: MessageSeverity, file_name: str, me
 
 
 def display_message_with_span(severity: MessageSeverity, file_name: str, contents: str | None,
-                              message: str, span: TextSpan):
+                              message: str, span: FileTextSpan):
     eprintln(f'{severity.variant}: {message}')
 
     if not contents:
@@ -97,7 +97,7 @@ def display_message_with_span(severity: MessageSeverity, file_name: str, content
 
 
 def print_source_line(severity: MessageSeverity, file_contents: str,
-                      file_span: Tuple[int, int], error_span: TextSpan,
+                      file_span: Tuple[int, int], error_span: FileTextSpan,
                       line_number: int, largest_line_number: int):
     index = file_span[0]
 
