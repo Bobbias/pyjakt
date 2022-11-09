@@ -25,9 +25,9 @@ Typechecking code translation is mostly complete. All functions have been implem
 
 ### Next steps
 
-* Debug typechecking, parsing, and lexing until a complete typechecking pass will complete.
-* Figure out basic code generation using llvmlite.
-* Figure out how to compile and link the Jakt prelude to our code generation.
+- [ ] Debug typechecking, parsing, and lexing until a complete typechecking pass will complete.
+- [x] Figure out basic code generation using llvmlite.
+- [ ] Figure out how to compile and link the Jakt prelude to our code generation.
 
 ## Dependencies
 
