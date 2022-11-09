@@ -1,6 +1,6 @@
-## Unnamed-compiler
+## PyJakt
 
-This project is a compiler for an as-yet unnamed language based syntactically off of [Jakt](https://github.com/SerenityOS/jakt/).
+This project is a compiler for ~an as-yet unnamed~ language temporarily named PyJakt based syntactically off of [Jakt](https://github.com/SerenityOS/jakt/).
 
 Much of the current code is based off of translating the Jakt self-hosting source into python. Future plans include native code generation via [LLVM](https://llvm.org).
 
